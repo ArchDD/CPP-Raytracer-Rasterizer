@@ -4,6 +4,7 @@
 #include <SDL.h>
 #include "SDLauxiliary.h"
 #include "TestModel.h"
+#include <limits>
 
 using namespace std;
 using glm::vec3;
@@ -17,12 +18,17 @@ const int SCREEN_HEIGHT = 500;
 SDL_Surface* screen;
 int t;
 
+float focalLength = 0.5;
+vec3 cameraPos(0.0, 0.0, 0.0);
+
 struct Intersection
 {
 	vec3 position;
 	float distance;
 	int triangleIndex;
 };
+
+vector<Intersection> closestIntersections;
 
 /* ----------------------------------------------------------------------------*/
 /* FUNCTIONS                                                                   */
@@ -41,23 +47,13 @@ int main( int argc, char* argv[] )
 	// defines the Cornell Box
 	LoadTestModel( triangles );
 
-	// intersections
-	Triangle triangle = triangles[0]; // triangle
-	vec3 s(0,0,0); // start of ray
-	vec3 d(0,0,0); // signed distance of ray
-	// the 3D real vectors that define the triangle
-	vec3 v0 = triangle.v0;
-	vec3 v1 = triangle.v1;
-	vec3 v2 = triangle.v2;
+	size_t i;
+	float m = std::numeric_limits<float>::max();
+	for(i = 0; i < triangles.size(); i++)
+	{
+		closestIntersections[i].distance = m;
 
-	// edges that are co-planar
-	vec3 e1 = v1 - v0;
-	vec3 e2 = v2 - v0;
-	vec3 b = s - v0;
-
-	// solve linear equation
-	mat3 A(-d, e1, e2);
-	vec3 x = glm::inverse(A) * b; // t, u, v
+	}
 
 	while( NoQuitMessageSDL() )
 	{
@@ -67,6 +63,48 @@ int main( int argc, char* argv[] )
 
 	SDL_SaveBMP( screen, "screenshot.bmp" );
 	return 0;
+}
+
+
+bool ClosestIntersection(vec3 start, vec3 dir, const vector<Triangle>& triangles,
+						 Intersection& closestIntersection)
+{
+	bool intersection = false;
+	// check all triangles for intersections
+	size_t i;
+	for (i = 0; i < triangles.size(); i++)
+	{
+		// the 3D real vectors that define the triangle
+		vec3 v0 = triangles[i].v0;
+		vec3 v1 = triangles[i].v1;
+		vec3 v2 = triangles[i].v2;
+
+		// edges that are co-planar
+		vec3 e1 = v1 - v0;
+		vec3 e2 = v2 - v0;
+		vec3 b = start - v0;
+
+		// solve linear equation
+		mat3 A(-dir, e1, e2);
+		vec3 x = glm::inverse(A) * b; // t, u, v
+
+		// checking constraints for point to be in triangle
+		float t = x.x, u = x.y, v = x.z;
+		if (u > 0 && v > 0 && t >= 0 && u + v < 1)
+		{
+			vec3 pos(u,v,t);
+			float distance = glm::distance(b, pos);
+			if (closestIntersection.distance > distance)
+			{
+				closestIntersection.position = pos;
+				closestIntersection.distance = distance;
+				closestIntersection.triangleIndex = i;
+			}
+			intersection = true;
+		}
+	}
+
+	return intersection;
 }
 
 void Update()
@@ -83,12 +121,15 @@ void Draw()
 	if( SDL_MUSTLOCK(screen) )
 		SDL_LockSurface(screen);
 
-	for( int y=0; y<SCREEN_HEIGHT; ++y )
+	// trace a ray for every pixel
+	int x, y;
+	for (y = 0; y < SCREEN_HEIGHT; y++)
 	{
-		for( int x=0; x<SCREEN_WIDTH; ++x )
+		for (x = 0; x < SCREEN_WIDTH; x++)
 		{
+			vec3 d(x-SCREEN_WIDTH/2, y - SCREEN_HEIGHT/2, focalLength);
 			vec3 color( 1.0, 0.0, 0.0 );
-			PutPixelSDL( screen, x, y, color );
+			PutPixelSDL( screen, x, y, color ); 
 		}
 	}
 
