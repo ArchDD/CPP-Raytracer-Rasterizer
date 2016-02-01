@@ -58,6 +58,15 @@ void Update()
 	float dt = float(t2-t);
 	t = t2;
 	cout << "Render time: " << dt << " ms." << endl;
+	for( int s=0; s<stars.size(); ++s )
+	{
+		// Add code for update of stars
+		stars[s].z -= dt/1000;
+		if( stars[s].z <= 0 )
+			stars[s].z += 1;
+		if( stars[s].z > 1 )
+			stars[s].z -= 1;
+	}
 }
 
 void Draw()
@@ -122,7 +131,13 @@ void Draw()
 	{
 		int xVal = int(stars[i].x * SCREEN_WIDTH);
 		int yVal = int(stars[i].y * SCREEN_HEIGHT);
-		PutPixelSDL( screen, xVal, yVal, vec3(1,1,1) );
+		// pinhole projection
+		int f = SCREEN_HEIGHT/2;
+		int ui = f*(stars[i].x/stars[i].z)+SCREEN_WIDTH/2;
+		int vi = f*(stars[i].y/stars[i].z)+SCREEN_HEIGHT/2;
+
+		vec3 color = 0.2f * vec3(1,1,1) / (stars[i].z*stars[i].z);
+		PutPixelSDL( screen, ui, vi, color);
 		//printf("stars x %f stars y %f x %d y %d\n", stars[i].x, stars[i].y, xVal, yVal);
 	}
 
