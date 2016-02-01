@@ -18,7 +18,7 @@ const int SCREEN_HEIGHT = 500;
 SDL_Surface* screen;
 int t;
 
-float focalLength = 0.5;
+float focalLength = 10;
 vec3 cameraPos(0.0, 0.0, 0.0);
 
 struct Intersection
@@ -47,12 +47,14 @@ int main( int argc, char* argv[] )
 	// defines the Cornell Box
 	LoadTestModel( triangles );
 
+	//every pixel will have a closest intersection
 	size_t i;
 	float m = std::numeric_limits<float>::max();
-	for(i = 0; i < triangles.size(); i++)
+	for(i = 0; i < SCREEN_WIDTH*SCREEN_HEIGHT; i++)
 	{
-		closestIntersections[i].distance = m;
-
+		Intersection intersection;
+		intersection.distance = m;
+		closestIntersections.push_back(intersection);
 	}
 
 	while( NoQuitMessageSDL() )
@@ -128,8 +130,16 @@ void Draw()
 		for (x = 0; x < SCREEN_WIDTH; x++)
 		{
 			vec3 d(x-SCREEN_WIDTH/2, y - SCREEN_HEIGHT/2, focalLength);
-			vec3 color( 1.0, 0.0, 0.0 );
-			PutPixelSDL( screen, x, y, color ); 
+			if ( ClosestIntersection(cameraPos, d, triangles, closestIntersections[y*SCREEN_HEIGHT + x] ))
+			{
+				// if intersect, use color of closest triangle
+				vec3 color = triangles[closestIntersections[y*SCREEN_HEIGHT+x].triangleIndex].color;
+				PutPixelSDL( screen, x, y, color );
+			}
+			else
+			{
+				PutPixelSDL( screen, x, y, vec3(0,0,0) );
+			}
 		}
 	}
 
