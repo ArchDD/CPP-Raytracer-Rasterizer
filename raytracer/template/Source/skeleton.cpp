@@ -7,6 +7,7 @@
 #include <limits>
 
 #define MOVE
+#define LIGHT
 
 using namespace std;
 using glm::vec3;
@@ -55,7 +56,7 @@ void Update();
 void Draw();
 bool ClosestIntersection(vec3 start, vec3 dir, const vector<Triangle>& triangles,
 						 Intersection& closestIntersection);
-
+vec3 DirectLight(const Intersection& i);
 
 int main( int argc, char* argv[] )
 {
@@ -73,7 +74,7 @@ int main( int argc, char* argv[] )
 		Intersection intersection;
 		intersection.distance = m;
 		closestIntersections.push_back(intersection);
-	}
+			}
 
 	cameraRot[1][1] = 1.0f;
 
@@ -128,6 +129,23 @@ bool ClosestIntersection(vec3 start, vec3 dir, const vector<Triangle>& triangles
 	}
 
 	return intersection;
+}
+
+vec3 DirectLight(const Intersection& i)
+{
+	// r is distance from lightPos and intersection pos
+	float r = glm::distance(i.position, lightPos);
+	float A = 4*M_PI*(r*r);
+	vec3 P = lightColor;
+	// unit vector of direction from surface to light
+	vec3 rDir = glm::normalize(lightPos - i.position);
+	// unit vector describing normal of surface
+	vec3 nDir = glm::normalize(triangles[i.triangleIndex].normal);
+	vec3 B = P/A;
+
+	vec3 D = B * max(glm::dot(rDir,nDir), 0.0f);
+
+	return D;
 }
 
 void Update()
