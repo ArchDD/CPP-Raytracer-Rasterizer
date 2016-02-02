@@ -18,8 +18,11 @@ const int SCREEN_HEIGHT = 500;
 SDL_Surface* screen;
 int t;
 
-float focalLength = 10;
-vec3 cameraPos(0.0, 0.0, 0.0);
+/*float focalLength = 50.0;
+vec3 cameraPos(0.0, 0.0, -1.0);*/
+float focalLength = 50.0;
+vec3 cameraPos(0.0, 0.0, -1.0);
+
 
 struct Intersection
 {
@@ -94,8 +97,9 @@ bool ClosestIntersection(vec3 start, vec3 dir, const vector<Triangle>& triangles
 		float t = x.x, u = x.y, v = x.z;
 		if (u > 0 && v > 0 && t >= 0 && u + v < 1)
 		{
-			vec3 pos(u,v,t);
-			float distance = glm::distance(b, pos);
+			//vec3 pos(u+v0.x,v+v0.y,v0.z);
+			vec3 pos = v0 + (u*e1) + (v*e2);
+			float distance = glm::distance(start, pos);
 			if (closestIntersection.distance > distance)
 			{
 				closestIntersection.position = pos;
