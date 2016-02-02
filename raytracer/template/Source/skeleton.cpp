@@ -35,6 +35,9 @@ float yaw = 0.0;
 SDL_Surface* screen;
 int t;
 
+// omni light variables
+vec3 lightPos(0, -0.5f, -0.7f);
+vec3 lightColor = 14.0f * vec3(1,1,1);
 
 struct Intersection
 {
@@ -71,6 +74,8 @@ int main( int argc, char* argv[] )
 		intersection.distance = m;
 		closestIntersections.push_back(intersection);
 	}
+
+	cameraRot[1][1] = 1.0f;
 
 	while( NoQuitMessageSDL() )
 	{
@@ -163,7 +168,6 @@ void Update()
 	float s = sin(yaw);
 	cameraRot[0][0] = c;
 	cameraRot[0][2] = s;
-	cameraRot[1][1] = 1.0f;
 	cameraRot[2][0] = -s;
 	cameraRot[2][2] = c;
 }
