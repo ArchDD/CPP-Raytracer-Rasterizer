@@ -113,7 +113,6 @@ bool ClosestIntersection(vec3 start, vec3 dir, const vector<Triangle>& triangles
 
 		// checking constraints for point to be in triangle
 		float t = x.x, u = x.y, v = x.z;
-		//if (u > 0.0f && v > 0.0f && t >= 0.0f && u + v < 1.0f)
 		if (u+v <= 1.0f && u >= 0.0f && v >= 0.0f && t >= 0.0f)
 		{
 			vec3 pos = v0 + (u*e1) + (v*e2);
@@ -145,6 +144,17 @@ vec3 DirectLight(const Intersection& i)
 
 	// direct ligth intensity
 	vec3 D = B * max(glm::dot(rDir,nDir), 0.0f);
+
+	// direct shadows
+	Intersection j;
+	j.distance = std::numeric_limits<float>::max();
+	// to avoid comparing with self, trace from light and reverse direction
+	if (ClosestIntersection(lightPos, -rDir, triangles, j))
+	{
+		// if intersection is closer to light source than self
+		if (j.distance < r*0.99f) // small multiplier to reduce noise
+			D = vec3 (0.0f, 0.0f, 0.0f);
+	}
 
 	// diffuse
 	// the color stored in the triangle is the reflected fraction of light
@@ -233,8 +243,10 @@ void Draw()
 			if ( ClosestIntersection(cameraPos, cameraRot*d, triangles, closestIntersections[y*SCREEN_HEIGHT + x] ))
 			{
 				// if intersect, use color of closest triangle
-				//vec3 color = triangles[closestIntersections[y*SCREEN_HEIGHT+x].triangleIndex].color;
 				vec3 color = DirectLight(closestIntersections[y*SCREEN_HEIGHT+x]);
+				
+				
+				// direct shadows cast to point from light
 				PutPixelSDL( screen, x, y, color );
 			}
 			else
