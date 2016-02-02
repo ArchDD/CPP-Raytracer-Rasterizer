@@ -6,7 +6,7 @@
 #include "TestModel.h"
 #include <limits>
 
-#define MOVE
+//#define MOVE
 #define LIGHT
 
 using namespace std;
@@ -143,9 +143,15 @@ vec3 DirectLight(const Intersection& i)
 	vec3 nDir = glm::normalize(triangles[i.triangleIndex].normal);
 	vec3 B = P/A;
 
+	// direct ligth intensity
 	vec3 D = B * max(glm::dot(rDir,nDir), 0.0f);
 
-	return D;
+	// diffuse
+	// the color stored in the triangle is the reflected fraction of light
+	vec3 p = triangles[i.triangleIndex].color;
+	vec3 R = p*D;
+
+	return R;
 }
 
 void Update()
