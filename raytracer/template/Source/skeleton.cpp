@@ -18,10 +18,10 @@ vector<Triangle> triangles;
 
 //Use smaller parameters when camera moving for realtime performance
 #ifdef MOVE
-	const int SCREEN_WIDTH = 80;
-	const int SCREEN_HEIGHT = 80;
-	float focalLength = 800.0f;
-	vec3 cameraPos(0.0f, 0.0f, -8.0f);
+	const int SCREEN_WIDTH = 150;
+	const int SCREEN_HEIGHT = 150;
+	float focalLength = 3000.0f;
+	vec3 cameraPos(0.0f, 0.0f, -50.0f);
 #else
 	const int SCREEN_WIDTH = 500;
 	const int SCREEN_HEIGHT = 500;
@@ -29,8 +29,8 @@ vector<Triangle> triangles;
 	vec3 cameraPos(0.0f, 0.0f, -1.5f);
 #endif
 
-mat3 cameraRot;
-float yaw;
+mat3 cameraRot = mat3(0.0f);
+float yaw = 0.0;
 
 SDL_Surface* screen;
 int t;
@@ -134,26 +134,29 @@ void Update()
 	cout << "Render time: " << dt << " ms." << endl;
 
 	// move camera
+	vec3 right(cameraRot[0][0], cameraRot[0][1], cameraRot[0][2]);
+	vec3 down(cameraRot[1][0], cameraRot[1][1], cameraRot[1][2]);
+	vec3 forward(cameraRot[2][0], cameraRot[2][1], cameraRot[2][2]);
 	Uint8* keystate = SDL_GetKeyState( 0 );
 	if( keystate[SDLK_UP] )
 	{
 		// Move camera forward
-		cameraPos.z += 0.2f;
+		cameraPos += 1.0f*forward;
 	}
 	else if( keystate[SDLK_DOWN] )
 	{
 		// Move camera backward
-		cameraPos.z -= 0.2f;
+		cameraPos -= 1.0f*forward;
 	}
 	if( keystate[SDLK_LEFT] )
 	{
 		// Move camera to the left
-		yaw -= 0.2f;
+		yaw += 0.01f;
 	}
 	else if( keystate[SDLK_RIGHT] )
 	{
 		// Move camera to the right
-		yaw += 0.2f;
+		yaw -= 0.01f;
 	}
 	// update rot
 	float c = cos(yaw);
@@ -176,8 +179,9 @@ void Draw()
 	{
 		for (x = 0; x < SCREEN_WIDTH; x++)
 		{
+			// work out vectors from rotation
 			vec3 d(x-SCREEN_WIDTH/2, y - SCREEN_HEIGHT/2, focalLength);
-			if ( ClosestIntersection(cameraPos, d, triangles, closestIntersections[y*SCREEN_HEIGHT + x] ))
+			if ( ClosestIntersection(cameraPos, cameraRot*d, triangles, closestIntersections[y*SCREEN_HEIGHT + x] ))
 			{
 				// if intersect, use color of closest triangle
 				vec3 color = triangles[closestIntersections[y*SCREEN_HEIGHT+x].triangleIndex].color;
