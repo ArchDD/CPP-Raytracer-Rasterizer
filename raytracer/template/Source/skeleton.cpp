@@ -18,10 +18,10 @@ const int SCREEN_HEIGHT = 500;
 SDL_Surface* screen;
 int t;
 
-/*float focalLength = 50.0;
-vec3 cameraPos(0.0, 0.0, -1.0);*/
-float focalLength = 50.0;
-vec3 cameraPos(0.0, 0.0, -1.0);
+/*float focalLength = 150.0;
+vec3 cameraPos(0.0, 0.0, -1.5);*/
+float focalLength = 150.0f;
+vec3 cameraPos(0.0f, 0.0f, -1.5f);
 
 
 struct Intersection
@@ -95,7 +95,7 @@ bool ClosestIntersection(vec3 start, vec3 dir, const vector<Triangle>& triangles
 
 		// checking constraints for point to be in triangle
 		float t = x.x, u = x.y, v = x.z;
-		if (u > 0 && v > 0 && t >= 0 && u + v < 1)
+		if (u > 0.0f && v > 0.0f && t >= 0.0f && u + v < 1.0f)
 		{
 			//vec3 pos(u+v0.x,v+v0.y,v0.z);
 			vec3 pos = v0 + (u*e1) + (v*e2);
@@ -142,7 +142,7 @@ void Draw()
 			}
 			else
 			{
-				PutPixelSDL( screen, x, y, vec3(0,0,0) );
+				PutPixelSDL( screen, x, y, vec3(0.0f,0.0f,0.0f) );
 			}
 		}
 	}
