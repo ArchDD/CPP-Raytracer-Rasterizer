@@ -39,6 +39,7 @@ int t;
 // omni light variables
 vec3 lightPos(0, -0.5f, -0.7f);
 vec3 lightColor = 14.0f * vec3(1,1,1);
+vec3 indirectLight = 0.5f*vec3(1,1,1);
 
 struct Intersection
 {
@@ -245,9 +246,16 @@ void Draw()
 				// if intersect, use color of closest triangle
 				vec3 color = DirectLight(closestIntersections[y*SCREEN_HEIGHT+x]);
 				
-				
+				// indirect lighting
+				vec3 D = color;
+				//vec3 N = triangles[closestIntersections[y*SCREEN_HEIGHT+x].triangleIndex].normal;
+				vec3 N = indirectLight;
+				vec3 T = D + N;
+				vec3 p = triangles[closestIntersections[y*SCREEN_HEIGHT+x].triangleIndex].color;
+				vec3 R = p*T;
+
 				// direct shadows cast to point from light
-				PutPixelSDL( screen, x, y, color );
+				PutPixelSDL( screen, x, y, R );
 			}
 			else
 			{
