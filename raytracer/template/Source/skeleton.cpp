@@ -188,6 +188,27 @@ void Update()
 	cameraRot[0][2] = s;
 	cameraRot[2][0] = -s;
 	cameraRot[2][2] = c;
+
+	// moving light
+	if (keystate[SDLK_w])
+	{
+		lightPos += 1.0f*forward;
+	}
+	else if (keystate[SDLK_s])
+	{
+		lightPos -= 1.0f*forward;
+	}
+
+	// moving light
+	if (keystate[SDLK_a])
+	{
+		lightPos -= 0.1f*right;
+	}
+	else if (keystate[SDLK_d])
+	{
+		lightPos += 0.1f*right;
+	}
+
 }
 
 void Draw()
@@ -206,7 +227,8 @@ void Draw()
 			if ( ClosestIntersection(cameraPos, cameraRot*d, triangles, closestIntersections[y*SCREEN_HEIGHT + x] ))
 			{
 				// if intersect, use color of closest triangle
-				vec3 color = triangles[closestIntersections[y*SCREEN_HEIGHT+x].triangleIndex].color;
+				//vec3 color = triangles[closestIntersections[y*SCREEN_HEIGHT+x].triangleIndex].color;
+				vec3 color = DirectLight(closestIntersections[y*SCREEN_HEIGHT+x]);
 				PutPixelSDL( screen, x, y, color );
 			}
 			else
