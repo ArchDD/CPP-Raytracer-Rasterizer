@@ -6,6 +6,8 @@
 #include "TestModel.h"
 #include <limits>
 
+#define MOVE
+
 using namespace std;
 using glm::vec3;
 using glm::mat3;
@@ -13,15 +15,25 @@ using glm::mat3;
 /* ----------------------------------------------------------------------------*/
 /* GLOBAL VARIABLES                                                            */
 vector<Triangle> triangles;
-const int SCREEN_WIDTH = 500;
-const int SCREEN_HEIGHT = 500;
+
+//Use smaller parameters when camera moving for realtime performance
+#ifdef MOVE
+	const int SCREEN_WIDTH = 80;
+	const int SCREEN_HEIGHT = 80;
+	float focalLength = 800.0f;
+	vec3 cameraPos(0.0f, 0.0f, -8.0f);
+#else
+	const int SCREEN_WIDTH = 500;
+	const int SCREEN_HEIGHT = 500;
+	float focalLength = 150.0f;
+	vec3 cameraPos(0.0f, 0.0f, -1.5f);
+#endif
+
+mat3 cameraRot;
+float yaw;
+
 SDL_Surface* screen;
 int t;
-
-/*float focalLength = 150.0;
-vec3 cameraPos(0.0, 0.0, -1.5);*/
-float focalLength = 150.0f;
-vec3 cameraPos(0.0f, 0.0f, -1.5f);
 
 
 struct Intersection
@@ -120,6 +132,37 @@ void Update()
 	float dt = float(t2-t);
 	t = t2;
 	cout << "Render time: " << dt << " ms." << endl;
+
+	// move camera
+	Uint8* keystate = SDL_GetKeyState( 0 );
+	if( keystate[SDLK_UP] )
+	{
+		// Move camera forward
+		cameraPos.z += 0.2f;
+	}
+	else if( keystate[SDLK_DOWN] )
+	{
+		// Move camera backward
+		cameraPos.z -= 0.2f;
+	}
+	if( keystate[SDLK_LEFT] )
+	{
+		// Move camera to the left
+		yaw -= 0.2f;
+	}
+	else if( keystate[SDLK_RIGHT] )
+	{
+		// Move camera to the right
+		yaw += 0.2f;
+	}
+	// update rot
+	float c = cos(yaw);
+	float s = sin(yaw);
+	cameraRot[0][0] = c;
+	cameraRot[0][2] = s;
+	cameraRot[1][1] = 1.0f;
+	cameraRot[2][0] = -s;
+	cameraRot[2][2] = c;
 }
 
 void Draw()
