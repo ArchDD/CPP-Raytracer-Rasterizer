@@ -95,12 +95,12 @@ bool ClosestIntersection(vec3 start, vec3 dir, const vector<Triangle>& triangles
 
 		// checking constraints for point to be in triangle
 		float t = x.x, u = x.y, v = x.z;
-		if (u > 0.0f && v > 0.0f && t >= 0.0f && u + v < 1.0f)
+		//if (u > 0.0f && v > 0.0f && t >= 0.0f && u + v < 1.0f)
+		if (u+v <= 1.0f && u >= 0.0f && v >= 0.0f && t >= 0.0f)
 		{
-			//vec3 pos(u+v0.x,v+v0.y,v0.z);
 			vec3 pos = v0 + (u*e1) + (v*e2);
 			float distance = glm::distance(start, pos);
-			if (closestIntersection.distance > distance)
+			if (closestIntersection.distance >= distance)
 			{
 				closestIntersection.position = pos;
 				closestIntersection.distance = distance;
