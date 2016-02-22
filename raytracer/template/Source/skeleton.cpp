@@ -108,11 +108,8 @@ bool ClosestIntersection(vec3 start, vec3 dir, const vector<Triangle>& triangles
 		vec3 e2 = v2 - v0;
 		vec3 b = start - v0;
 
-		// solve linear equation
-		mat3 A(-dir, e1, e2);
-
 		// keep this for speed comparison
-		//vec3 x = glm::inverse(A) * b; float t = x.x, u = x.y, v = x.z;
+		//mat3 A(-dir, e1, e2);vec3 x = glm::inverse(A) * b; float t = x.x, u = x.y, v = x.z;
 
 		// Cramer's rule: valid when there is a solution
 		//anticommutative
