@@ -110,7 +110,36 @@ bool ClosestIntersection(vec3 start, vec3 dir, const vector<Triangle>& triangles
 
 		// solve linear equation
 		mat3 A(-dir, e1, e2);
-		vec3 x = glm::inverse(A) * b; // t, u, v
+
+		// keep this for speed comparison
+		//vec3 x = glm::inverse(A) * b; // t, u, v
+
+		// Cramer's rule: valid when there is a solution
+		float detA = glm::determinant(A);
+		//float detAx, detAy, detAz;
+		mat3 Ax = A;
+		Ax[0][0] = b.x;
+		Ax[0][1] = b.y;
+		Ax[0][2] = b.z;
+
+		mat3 Ay = A;
+		Ay[1][0] = b.x;
+		Ay[1][1] = b.y;
+		Ay[1][2] = b.z;
+
+		mat3 Az = A;
+		Az[2][0] = b.x;
+		Az[2][1] = b.y;
+		Az[2][2] = b.z;
+
+		// using |A|=aei+bgf+cdh-ceg-bdi-afh
+
+
+		float detAx = glm::determinant(Ax);
+		float detAy = glm::determinant(Ay);
+		float detAz = glm::determinant(Az);
+
+		vec3 x(detAx/detA, detAy/detA, detAz/detA);
 
 		// checking constraints for point to be in triangle
 		float t = x.x, u = x.y, v = x.z;
