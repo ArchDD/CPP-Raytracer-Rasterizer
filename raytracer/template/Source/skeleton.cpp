@@ -112,37 +112,24 @@ bool ClosestIntersection(vec3 start, vec3 dir, const vector<Triangle>& triangles
 		mat3 A(-dir, e1, e2);
 
 		// keep this for speed comparison
-		//vec3 x = glm::inverse(A) * b; // t, u, v
+		//vec3 x = glm::inverse(A) * b; float t = x.x, u = x.y, v = x.z;
 
 		// Cramer's rule: valid when there is a solution
-		float detA = glm::determinant(A);
-		//float detAx, detAy, detAz;
-		mat3 Ax = A;
-		Ax[0][0] = b.x;
-		Ax[0][1] = b.y;
-		Ax[0][2] = b.z;
+		//anticommutative
+		vec3 e1e2 = glm::cross(e1,e2);
+		vec3 be2 = glm::cross(b,e2);
+		vec3 e1b = glm::cross(e1,b);
 
-		mat3 Ay = A;
-		Ay[1][0] = b.x;
-		Ay[1][1] = b.y;
-		Ay[1][2] = b.z;
+		vec3 negD = -dir;
 
-		mat3 Az = A;
-		Az[2][0] = b.x;
-		Az[2][1] = b.y;
-		Az[2][2] = b.z;
-
-		// using |A|=aei+bgf+cdh-ceg-bdi-afh
-
-
-		float detAx = glm::determinant(Ax);
-		float detAy = glm::determinant(Ay);
-		float detAz = glm::determinant(Az);
-
-		vec3 x(detAx/detA, detAy/detA, detAz/detA);
+		float e1e2b = e1e2.x*b.x+e1e2.y*b.y+e1e2.z*b.z;
+		float e1e2d = e1e2.x*negD.x+e1e2.y*negD.y+e1e2.z*negD.z;
+		float be2d =  be2.x*negD.x+be2.y*negD.y+be2.z*negD.z;
+		float e1bd =  e1b.x*negD.x+e1b.y*negD.y+e1b.z*negD.z;
 
 		// checking constraints for point to be in triangle
-		float t = x.x, u = x.y, v = x.z;
+		float t = e1e2b/e1e2d, u = be2d/e1e2d, v = e1bd/e1e2d;
+
 		if (u+v <= 1.0f && u >= 0.0f && v >= 0.0f && t >= 0.0f)
 		{
 			vec3 pos = v0 + (u*e1) + (v*e2);
