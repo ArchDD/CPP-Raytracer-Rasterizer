@@ -19,6 +19,9 @@ using glm::mat3;
 /* GLOBAL VARIABLES                                                            */
 vector<Triangle> triangles;
 
+/* RENDER SETTINGS                                                             */
+#define AA_SAMPLES 4
+
 // Use smaller parameters when camera moving for realtime performance
 #ifdef MOVE
 	const int SCREEN_WIDTH = 150;
@@ -64,6 +67,8 @@ vec3 DirectLight(const Intersection& i);
 int main( int argc, char* argv[] )
 {
 	screen = InitializeSDL( SCREEN_WIDTH, SCREEN_HEIGHT );
+
+	cout << "Antialiasing samples: " << AA_SAMPLES << endl;
 
 	// Request as many threads as the system can provide
     omp_set_num_threads(omp_get_max_threads());
@@ -256,34 +261,48 @@ void Draw()
 		SDL_LockSurface(screen);
 
 	// trace a ray for every pixel
-	int x, y;
+	int x, y, z, z2;
 
 	for (y = 0; y < SCREEN_HEIGHT; y++)
 	{
 		for (x = 0; x < SCREEN_WIDTH; x++)
 		{
-			// work out vectors from rotation
-			vec3 d(x-SCREEN_WIDTH/2, y - SCREEN_HEIGHT/2, focalLength);
-			if ( ClosestIntersection(cameraPos, cameraRot*d, triangles, closestIntersections[y*SCREEN_HEIGHT + x] ))
-			{
-				// if intersect, use color of closest triangle
-				vec3 color = DirectLight(closestIntersections[y*SCREEN_HEIGHT+x]);
-				
-				// indirect lighting
-				vec3 D = color;
-				//vec3 N = triangles[closestIntersections[y*SCREEN_HEIGHT+x].triangleIndex].normal;
-				vec3 N = indirectLight;
-				vec3 T = D + N;
-				vec3 p = triangles[closestIntersections[y*SCREEN_HEIGHT+x].triangleIndex].color;
-				vec3 R = p*T;
+			vec3 avgColor(0.0f,0.0f,0.0f);
+			float y1 = y - 0.5f;
 
-				// direct shadows cast to point from light
-				PutPixelSDL( screen, x, y, R );
-			}
-			else
+			for(z = 0; z < AA_SAMPLES; z++)
 			{
-				PutPixelSDL( screen, x, y, vec3(0.0f,0.0f,0.0f) );
+				float x1 = x - 0.5f;
+				for(z2 = 0; z2 < AA_SAMPLES; z2++)
+				{
+					// work out vectors from rotation
+					vec3 d(x1-(float)SCREEN_WIDTH/2.0f, y1 - (float)SCREEN_HEIGHT/2.0f, focalLength);
+					if ( ClosestIntersection(cameraPos, cameraRot*d, triangles, closestIntersections[y*SCREEN_HEIGHT + x] ))
+					{
+						// if intersect, use color of closest triangle
+						vec3 color = DirectLight(closestIntersections[y*SCREEN_HEIGHT+x]);
+						
+						// indirect lighting
+						vec3 D = color;
+						//vec3 N = triangles[closestIntersections[y*SCREEN_HEIGHT+x].triangleIndex].normal;
+						vec3 N = indirectLight;
+						vec3 T = D + N;
+						vec3 p = triangles[closestIntersections[y*SCREEN_HEIGHT+x].triangleIndex].color;
+						vec3 R = p*T;
+
+						// direct shadows cast to point from light
+						avgColor += R;
+
+						x1 += (1.0f / (float) AA_SAMPLES);
+					}
+				}
+				y1 += (1.0f / (float) (AA_SAMPLES));
 			}
+
+			avgColor /= (float)(AA_SAMPLES * AA_SAMPLES);
+
+			PutPixelSDL( screen, x, y, avgColor );
+
 		}
 	}
 
