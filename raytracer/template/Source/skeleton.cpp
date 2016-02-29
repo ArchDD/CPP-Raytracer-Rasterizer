@@ -7,7 +7,7 @@
 #include <limits>
 #include <omp.h>
 
-//#define MOVE
+#define MOVE
 #define LIGHT
 #define NUM_THREADS 4
 
@@ -20,14 +20,14 @@ using glm::mat3;
 vector<Triangle> triangles;
 
 /* RENDER SETTINGS                                                             */
-#define AA_SAMPLES 1
+#define AA_SAMPLES 2
 
 // Use smaller parameters when camera moving for realtime performance
 #ifdef MOVE
 	const int SCREEN_WIDTH = 150;
 	const int SCREEN_HEIGHT = 150;
-	float focalLength = 3000.0f;
-	vec3 cameraPos(0.0f, 0.0f, -50.0f);
+	float focalLength = 250.0f;
+	vec3 cameraPos(0.0f, 0.0f, -4.3f);
 #else
 	const int SCREEN_WIDTH = 500;
 	const int SCREEN_HEIGHT = 500;
