@@ -5,6 +5,7 @@
 
 #include <glm/glm.hpp>
 #include <vector>
+#include <omp.h>
 
 // Used to describe a triangular surface:
 class Triangle
