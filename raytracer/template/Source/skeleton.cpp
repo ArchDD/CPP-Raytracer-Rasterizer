@@ -20,7 +20,7 @@ using glm::mat3;
 vector<Triangle> triangles;
 
 /* RENDER SETTINGS                                                             */
-#define AA_SAMPLES 4
+#define AA_SAMPLES 1
 
 // Use smaller parameters when camera moving for realtime performance
 #ifdef MOVE
@@ -31,8 +31,8 @@ vector<Triangle> triangles;
 #else
 	const int SCREEN_WIDTH = 500;
 	const int SCREEN_HEIGHT = 500;
-	float focalLength = 150.0f;
-	vec3 cameraPos(0.0f, 0.0f, -1.5f);
+	float focalLength = 250.0f;
+	vec3 cameraPos(0.0f, 0.0f, -2.0f);
 #endif
 
 mat3 cameraRot = mat3(0.0f);
@@ -97,6 +97,11 @@ int main( int argc, char* argv[] )
 	{
 		Update();
 		Draw();
+		// Reset intersection distances
+		for(i = 0; i < SCREEN_WIDTH*SCREEN_HEIGHT; i++)
+		{
+			closestIntersections[i].distance = m;
+		}
 	}
 
 	SDL_SaveBMP( screen, "screenshot.bmp" );
@@ -208,22 +213,22 @@ void Update()
 	if( keystate[SDLK_UP] )
 	{
 		// Move camera forward
-		cameraPos += 1.0f*forward;
+		cameraPos += 0.1f*forward;
 	}
 	else if( keystate[SDLK_DOWN] )
 	{
 		// Move camera backward
-		cameraPos -= 1.0f*forward;
+		cameraPos -= 0.1f*forward;
 	}
 	if( keystate[SDLK_LEFT] )
 	{
 		// Rotate camera to the left
-		yaw += 0.01f;
+		yaw += 0.1f;
 	}
 	else if( keystate[SDLK_RIGHT] )
 	{
 		// Rotate camera to the right
-		yaw -= 0.01f;
+		yaw -= 0.1f;
 	}
 	// Update camera rotation matrix
 	float c = cos(yaw);
