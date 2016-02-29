@@ -1,4 +1,4 @@
-// Have you remembered to export GLMDIR=/glm?
+
 #include <iostream>
 #include <glm/glm.hpp>
 #include <SDL.h>
@@ -17,7 +17,7 @@ using glm::mat3;
 /* GLOBAL VARIABLES                                                            */
 vector<Triangle> triangles;
 
-//Use smaller parameters when camera moving for realtime performance
+// Use smaller parameters when camera moving for realtime performance
 #ifdef MOVE
 	const int SCREEN_WIDTH = 150;
 	const int SCREEN_HEIGHT = 150;
@@ -36,7 +36,7 @@ float yaw = 0.0;
 SDL_Surface* screen;
 int t;
 
-// omni light variables
+// Point light variables
 vec3 lightPos(0, -0.5f, -0.7f);
 vec3 lightColor = 14.0f * vec3(1,1,1);
 vec3 indirectLight = 0.5f*vec3(1,1,1);
@@ -62,20 +62,23 @@ vec3 DirectLight(const Intersection& i);
 int main( int argc, char* argv[] )
 {
 	screen = InitializeSDL( SCREEN_WIDTH, SCREEN_HEIGHT );
-	t = SDL_GetTicks();	// Set start value for timer.
 
-	// defines the Cornell Box
+	// Set start value for timer
+	t = SDL_GetTicks();
+
+	// Generate the Cornell Box
 	LoadTestModel( triangles );
 
-	//every pixel will have a closest intersection
+	// Every pixel will have a closest intersection
 	size_t i;
 	float m = std::numeric_limits<float>::max();
+
 	for(i = 0; i < SCREEN_WIDTH*SCREEN_HEIGHT; i++)
 	{
 		Intersection intersection;
 		intersection.distance = m;
 		closestIntersections.push_back(intersection);
-			}
+	}
 
 	cameraRot[1][1] = 1.0f;
 
@@ -156,7 +159,7 @@ vec3 DirectLight(const Intersection& i)
 	vec3 nDir = glm::normalize(triangles[i.triangleIndex].normal);
 	vec3 B = P/A;
 
-	// direct ligth intensity
+	// direct light intensity
 	vec3 D = B * max(glm::dot(rDir,nDir), 0.0f);
 
 	// direct shadows
@@ -203,15 +206,15 @@ void Update()
 	}
 	if( keystate[SDLK_LEFT] )
 	{
-		// Move camera to the left
+		// Rotate camera to the left
 		yaw += 0.01f;
 	}
 	else if( keystate[SDLK_RIGHT] )
 	{
-		// Move camera to the right
+		// Rotate camera to the right
 		yaw -= 0.01f;
 	}
-	// update rot
+	// Update camera rotation matrix
 	float c = cos(yaw);
 	float s = sin(yaw);
 	cameraRot[0][0] = c;
