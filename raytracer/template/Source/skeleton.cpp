@@ -5,9 +5,11 @@
 #include "SDLauxiliary.h"
 #include "TestModel.h"
 #include <limits>
+#include <omp.h>
 
 //#define MOVE
 #define LIGHT
+#define NUM_THREADS 4
 
 using namespace std;
 using glm::vec3;
@@ -62,6 +64,10 @@ vec3 DirectLight(const Intersection& i);
 int main( int argc, char* argv[] )
 {
 	screen = InitializeSDL( SCREEN_WIDTH, SCREEN_HEIGHT );
+
+	// Request as many threads as the system can provide
+    omp_set_num_threads(omp_get_max_threads());
+    cout << "Running on " << omp_get_max_threads() << " threads" << endl;
 
 	// Set start value for timer
 	t = SDL_GetTicks();
@@ -251,6 +257,7 @@ void Draw()
 
 	// trace a ray for every pixel
 	int x, y;
+
 	for (y = 0; y < SCREEN_HEIGHT; y++)
 	{
 		for (x = 0; x < SCREEN_WIDTH; x++)
