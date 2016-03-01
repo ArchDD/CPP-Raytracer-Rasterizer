@@ -7,10 +7,6 @@
 #include <limits>
 #include <omp.h>
 
-#define REALTIME
-#define LIGHT
-#define NUM_THREADS 4
-
 using namespace std;
 using glm::vec3;
 using glm::mat3;
@@ -20,8 +16,15 @@ using glm::mat3;
 vector<Triangle> triangles;
 
 /* RENDER SETTINGS                                                             */
+//#define REALTIME
+#define NUM_THREADS 4
+#define TRACE_DEPTH 2
+
 bool AA_ENABLED = true;
-int AA_SAMPLES = 2;
+int AA_SAMPLES = 3;
+
+bool SOFT_SHADOWS_ENABLED = true;
+int SOFT_SHADOWS_SAMPLES = 4;
 
 /* KEY STATES                                                                  */
 // These variables aren't ideal, it'd be better if we could find an SDL function that gives OnKeyDown events rather than
@@ -50,7 +53,7 @@ int t;
 // Point light variables
 vec3 lightPos(0, -0.5f, -0.7f);
 vec3 lightColor = 14.0f * vec3(1,1,1);
-vec3 indirectLight = 0.5f*vec3(1,1,1);
+vec3 indirectLight = 0.2f*vec3(1,1,1);
 
 struct Intersection
 {
@@ -69,6 +72,7 @@ void Draw();
 bool ClosestIntersection(vec3 start, vec3 dir, const vector<Triangle>& triangles,
 						 Intersection& closestIntersection);
 vec3 DirectLight(const Intersection& i);
+void Raytrace(int currentDepth);
 
 int main( int argc, char* argv[] )
 {
@@ -284,60 +288,65 @@ void Draw()
 	if( SDL_MUSTLOCK(screen) )
 		SDL_LockSurface(screen);
 
-	// trace a ray for every pixel
-	int x, y, z, z2;
-	int realSamples; // Number of AA samples to use. Set to 1 if AA is disabled
-
-	if(AA_ENABLED)
-		realSamples = AA_SAMPLES;
-	else
-		realSamples = 1;
-
-	for (y = 0; y < SCREEN_HEIGHT; y++)
-	{
-		for (x = 0; x < SCREEN_WIDTH; x++)
-		{
-			vec3 avgColor(0.0f,0.0f,0.0f);
-			float y1 = y - 0.5f;
-
-			for(z = 0; z < realSamples; z++)
-			{
-				float x1 = x - 0.5f;
-				for(z2 = 0; z2 < realSamples; z2++)
-				{
-					// work out vectors from rotation
-					vec3 d(x1-(float)SCREEN_WIDTH/2.0f, y1 - (float)SCREEN_HEIGHT/2.0f, focalLength);
-					if ( ClosestIntersection(cameraPos, cameraRot*d, triangles, closestIntersections[y*SCREEN_HEIGHT + x] ))
-					{
-						// if intersect, use color of closest triangle
-						vec3 color = DirectLight(closestIntersections[y*SCREEN_HEIGHT+x]);
-						
-						// indirect lighting
-						vec3 D = color;
-						//vec3 N = triangles[closestIntersections[y*SCREEN_HEIGHT+x].triangleIndex].normal;
-						vec3 N = indirectLight;
-						vec3 T = D + N;
-						vec3 p = triangles[closestIntersections[y*SCREEN_HEIGHT+x].triangleIndex].color;
-						vec3 R = p*T;
-
-						// direct shadows cast to point from light
-						avgColor += R;
-
-						x1 += (1.0f / (float) realSamples);
-					}
-				}
-				y1 += (1.0f / (float) (realSamples));
-			}
-
-			avgColor /= (float)(realSamples * realSamples);
-
-			PutPixelSDL( screen, x, y, avgColor );
-
-		}
-	}
+	Raytrace(0);
 
 	if( SDL_MUSTLOCK(screen) )
 		SDL_UnlockSurface(screen);
 
 	SDL_UpdateRect( screen, 0, 0, 0, 0 );
+}
+
+void Raytrace(int currentDepth)
+{
+	if(currentDepth < TRACE_DEPTH)
+	{
+		// trace a ray for every pixel
+		int x, y, z, z2;
+		int realSamples; // Number of AA samples to use. Set to 1 if AA is disabled
+
+		if(AA_ENABLED)
+			realSamples = AA_SAMPLES;
+		else
+			realSamples = 1;
+
+		for (y = 0; y < SCREEN_HEIGHT; y++)
+		{
+			for (x = 0; x < SCREEN_WIDTH; x++)
+			{
+				vec3 avgColor(0.0f,0.0f,0.0f);
+				float y1 = y - 0.5f;
+
+				for(z = 0; z < realSamples; z++)
+				{
+					float x1 = x - 0.5f;
+					for(z2 = 0; z2 < realSamples; z2++)
+					{
+						// work out vectors from rotation
+						vec3 d(x1-(float)SCREEN_WIDTH/2.0f, y1 - (float)SCREEN_HEIGHT/2.0f, focalLength);
+						if ( ClosestIntersection(cameraPos, cameraRot*d, triangles, closestIntersections[y*SCREEN_HEIGHT + x] ))
+						{
+							// if intersect, use color of closest triangle
+							vec3 color = DirectLight(closestIntersections[y*SCREEN_HEIGHT+x]);
+							vec3 D = color;
+							vec3 N = indirectLight;
+							vec3 T = D + N;
+							vec3 p = triangles[closestIntersections[y*SCREEN_HEIGHT+x].triangleIndex].color;
+							vec3 R = p*T;
+
+							// direct shadows cast to point from light
+							avgColor += R;
+
+							x1 += (1.0f / (float) realSamples);
+						}
+					}
+					y1 += (1.0f / (float) (realSamples));
+				}
+
+				avgColor /= (float)(realSamples * realSamples);
+
+				PutPixelSDL( screen, x, y, avgColor );
+
+			}
+		}
+	}
 }
