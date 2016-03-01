@@ -20,7 +20,13 @@ using glm::mat3;
 vector<Triangle> triangles;
 
 /* RENDER SETTINGS                                                             */
-#define AA_SAMPLES 3
+bool AA_ENABLED = true;
+int AA_SAMPLES = 2;
+
+/* KEY STATES                                                                  */
+// These variables aren't ideal, it'd be better if we could find an SDL function that gives OnKeyDown events rather than
+// simply checking if the key is pressed
+bool AA_key_pressed = false;
 
 // Use smaller parameters when camera moving for realtime performance
 #ifdef REALTIME
@@ -199,17 +205,18 @@ vec3 DirectLight(const Intersection& i)
 
 void Update()
 {
-	// Compute frame time:
+	// Compute frame time
 	int t2 = SDL_GetTicks();
 	float dt = float(t2-t);
 	t = t2;
 	cout << "Render time: " << dt << " ms." << endl;
 
-	// move camera
+	// Adjust camera transform
 	vec3 right(cameraRot[0][0], cameraRot[0][1], cameraRot[0][2]);
 	vec3 down(cameraRot[1][0], cameraRot[1][1], cameraRot[1][2]);
 	vec3 forward(cameraRot[2][0], cameraRot[2][1], cameraRot[2][2]);
 	Uint8* keystate = SDL_GetKeyState( 0 );
+	
 	if( keystate[SDLK_UP] )
 	{
 		// Move camera forward
@@ -230,6 +237,7 @@ void Update()
 		// Rotate camera to the right
 		yaw -= 0.1f;
 	}
+
 	// Update camera rotation matrix
 	float c = cos(yaw);
 	float s = sin(yaw);
@@ -238,7 +246,18 @@ void Update()
 	cameraRot[2][0] = -s;
 	cameraRot[2][2] = c;
 
-	// moving light
+
+	// Need to check if key has been released to stop the option toggling every frame
+	if(!AA_key_pressed && keystate[SDLK_1])
+	{
+		AA_ENABLED = !AA_ENABLED;
+		AA_key_pressed = true;
+	}
+	else if (!keystate[SDLK_1])
+		AA_key_pressed = false;
+	
+
+	// Light movement controls
 	if (keystate[SDLK_w])
 	{
 		lightPos += 1.0f*forward;
@@ -248,7 +267,7 @@ void Update()
 		lightPos -= 1.0f*forward;
 	}
 
-	// moving light
+	// Light movement controls
 	if (keystate[SDLK_a])
 	{
 		lightPos -= 0.1f*right;
@@ -267,6 +286,12 @@ void Draw()
 
 	// trace a ray for every pixel
 	int x, y, z, z2;
+	int realSamples; // Number of AA samples to use. Set to 1 if AA is disabled
+
+	if(AA_ENABLED)
+		realSamples = AA_SAMPLES;
+	else
+		realSamples = 1;
 
 	for (y = 0; y < SCREEN_HEIGHT; y++)
 	{
@@ -275,10 +300,10 @@ void Draw()
 			vec3 avgColor(0.0f,0.0f,0.0f);
 			float y1 = y - 0.5f;
 
-			for(z = 0; z < AA_SAMPLES; z++)
+			for(z = 0; z < realSamples; z++)
 			{
 				float x1 = x - 0.5f;
-				for(z2 = 0; z2 < AA_SAMPLES; z2++)
+				for(z2 = 0; z2 < realSamples; z2++)
 				{
 					// work out vectors from rotation
 					vec3 d(x1-(float)SCREEN_WIDTH/2.0f, y1 - (float)SCREEN_HEIGHT/2.0f, focalLength);
@@ -298,13 +323,13 @@ void Draw()
 						// direct shadows cast to point from light
 						avgColor += R;
 
-						x1 += (1.0f / (float) AA_SAMPLES);
+						x1 += (1.0f / (float) realSamples);
 					}
 				}
-				y1 += (1.0f / (float) (AA_SAMPLES));
+				y1 += (1.0f / (float) (realSamples));
 			}
 
-			avgColor /= (float)(AA_SAMPLES * AA_SAMPLES);
+			avgColor /= (float)(realSamples * realSamples);
 
 			PutPixelSDL( screen, x, y, avgColor );
 
