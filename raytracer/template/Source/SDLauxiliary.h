@@ -80,4 +80,5 @@ void PutPixelSDL( SDL_Surface* surface, int x, int y, glm::vec3 color )
 	*p = SDL_MapRGB( surface->format, r, g, b );
 }
 
+
 #endif

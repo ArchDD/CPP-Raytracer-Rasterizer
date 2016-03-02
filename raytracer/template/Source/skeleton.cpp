@@ -25,7 +25,9 @@ vector<Triangle> triangles;
 
 /* RENDER SETTINGS                                                             */
 //#define REALTIME
-#define NUM_THREADS 4
+
+bool MULTITHREADING_ENABLED = false;
+int NUM_THREADS = 4; // Set to 0 to get max available
 
 bool AA_ENABLED = false;
 int AA_SAMPLES = 3;
@@ -33,11 +35,16 @@ int AA_SAMPLES = 3;
 bool SOFT_SHADOWS_ENABLED = false;
 int SOFT_SHADOWS_SAMPLES = 16;
 
+bool DOF_ENABLED = true;
+int DOF_KERNEL_SIZE = 3;
+float FOCAL_LENGTH = 0.5f;
+
 /* KEY STATES                                                                  */
 // These variables aren't ideal, it'd be better if we could find an SDL function that gives OnKeyDown events rather than
 // simply checking if the key is pressed
 bool AA_key_pressed = false;
 bool shadows_key_pressed = false;
+bool DOF_key_pressed = false;
 
 // Use smaller parameters when camera moving for realtime performance
 #ifdef REALTIME
@@ -66,6 +73,9 @@ vec3 indirectLight = 0.2f*vec3(1,1,1);
 // Store jittered light positions for soft shadows. Up to 64 samples allowed.
 vec3 randomPositions[64];
 
+float focalDistances[SCREEN_WIDTH * SCREEN_HEIGHT];
+vec3 pixelColours[SCREEN_WIDTH * SCREEN_HEIGHT];
+
 struct Intersection
 {
 	vec3 position;
@@ -89,11 +99,18 @@ int main( int argc, char* argv[] )
 {
 	screen = InitializeSDL( SCREEN_WIDTH, SCREEN_HEIGHT );
 
-	cout << "Antialiasing samples: " << AA_SAMPLES << endl;
-
 	// Request as many threads as the system can provide
-    omp_set_num_threads(omp_get_max_threads());
-    cout << "Running on " << omp_get_max_threads() << " threads" << endl;
+	if(NUM_THREADS == 0) 
+		NUM_THREADS = omp_get_max_threads();
+
+    omp_set_num_threads(NUM_THREADS);
+
+    if(MULTITHREADING_ENABLED)
+    	cout << "Multithreading enabled with " << NUM_THREADS << " threads" << endl;
+	if(AA_ENABLED)
+		cout << "Antialiasing enabled with samples: " << AA_SAMPLES << endl;
+	if(SOFT_SHADOWS_ENABLED)
+		cout << "Soft Shadows enabled with samples: " << SOFT_SHADOWS_SAMPLES << endl;
 
 	// Set start value for timer
 	t = SDL_GetTicks();
@@ -298,24 +315,6 @@ void Update()
 	cameraRot[0][2] = s;
 	cameraRot[2][0] = -s;
 	cameraRot[2][2] = c;
-
-
-	// Need to check if key has been released to stop the option toggling every frame
-	if(!AA_key_pressed && keystate[SDLK_1])
-	{
-		AA_ENABLED = !AA_ENABLED;
-		AA_key_pressed = true;
-	}
-	else if (!keystate[SDLK_1])
-		AA_key_pressed = false;
-
-	if(!shadows_key_pressed && keystate[SDLK_2])
-	{
-		SOFT_SHADOWS_ENABLED = !SOFT_SHADOWS_ENABLED;
-		shadows_key_pressed = true;
-	}
-	else if (!keystate[SDLK_2])
-		shadows_key_pressed = false;
 	
 
 	// Light movement controls
@@ -354,6 +353,34 @@ void Update()
 		}
 	}
 
+	// Need to check if key has been released to stop the option toggling every frame
+	if(!AA_key_pressed && keystate[SDLK_1])
+	{
+		AA_ENABLED = !AA_ENABLED;
+		cout << "Antialiasing toggled to " << AA_ENABLED << endl;
+		AA_key_pressed = true;
+	}
+	else if (!keystate[SDLK_1])
+		AA_key_pressed = false;
+
+	if(!shadows_key_pressed && keystate[SDLK_2])
+	{
+		SOFT_SHADOWS_ENABLED = !SOFT_SHADOWS_ENABLED;
+		cout << "Soft Shadows toggled to " << SOFT_SHADOWS_ENABLED << endl;
+		shadows_key_pressed = true;
+	}
+	else if (!keystate[SDLK_2])
+		shadows_key_pressed = false;
+
+	if(!DOF_key_pressed && keystate[SDLK_3])
+	{
+		DOF_ENABLED = !DOF_ENABLED;
+		cout << "Depth of Field toggled to " << DOF_ENABLED << endl;
+		DOF_key_pressed = true;
+	}
+	else if (!keystate[SDLK_3])
+		DOF_key_pressed = false;
+
 }
 
 void Draw()
@@ -361,7 +388,7 @@ void Draw()
 	if( SDL_MUSTLOCK(screen) )
 		SDL_LockSurface(screen);
 
-		// trace a ray for every pixel
+	// trace a ray for every pixel
 	int x, y, z, z2;
 	int realSamples; // Number of AA samples to use. Set to 1 if AA is disabled
 	float x1, y1;
