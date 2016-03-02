@@ -35,9 +35,12 @@ int AA_SAMPLES = 3;
 bool SOFT_SHADOWS_ENABLED = false;
 int SOFT_SHADOWS_SAMPLES = 16;
 
-bool DOF_ENABLED = true;
+bool DOF_ENABLED = false;
 int DOF_KERNEL_SIZE = 8;
 float FOCAL_LENGTH = 0.5f;
+
+int NUM_LIGHTS = 0;
+Light lights[32];
 
 /* KEY STATES                                                                  */
 // These variables aren't ideal, it'd be better if we could find an SDL function that gives OnKeyDown events rather than
@@ -65,13 +68,11 @@ float yaw = 0.0;
 SDL_Surface* screen;
 int t;
 
-// Point light variables
-vec3 lightPos(0, -0.5f, -0.7f);
-vec3 lightColor = 14.0f * vec3(1,1,1);
+// Ambient Lighting
 vec3 indirectLight = 0.2f*vec3(1,1,1);
 
-// Store jittered light positions for soft shadows. Up to 64 samples allowed.
-vec3 randomPositions[64];
+// Store jittered light positions for soft shadows. Needs minimum size of num lights * soft shadow samples.
+vec3 randomPositions[256];
 
 // Depth of field data containers
 float focalDistances[SCREEN_WIDTH * SCREEN_HEIGHT];
@@ -97,10 +98,13 @@ bool ClosestIntersection(vec3 start, vec3 dir, const vector<Triangle>& triangles
 vec3 DirectLight(const Intersection& i);
 float RandomNumber();
 void CalculateDOF();
+void AddLight(vec3 position, vec3 color, float intensity);
 
 int main( int argc, char* argv[] )
 {
 	screen = InitializeSDL( SCREEN_WIDTH, SCREEN_HEIGHT );
+	AddLight(vec3(0, -0.5f, -0.7f), vec3(1,1,1), 7 );
+	AddLight(vec3(-0.2f, -0.2f, -0.3f), vec3(1,0,0), 7 );
 
 	// Request as many threads as the system can provide
 	if(NUM_THREADS == 0) 
@@ -134,12 +138,6 @@ int main( int argc, char* argv[] )
 
 	cameraRot[1][1] = 1.0f;
 
-	// Generate jittered light positions
-	for(i = 0; i < SOFT_SHADOWS_SAMPLES; i++)
-	{
-		vec3 randomPos(lightPos.x + (RandomNumber() * 0.1f), lightPos.y + (RandomNumber() * 0.1f), lightPos.z + (RandomNumber() * 0.1f));
-		randomPositions[i] = randomPos;
-	}
 
 	while( NoQuitMessageSDL() )
 	{
@@ -156,6 +154,21 @@ int main( int argc, char* argv[] )
 	SDL_SaveBMP( screen, "screenshot.bmp" );
 
 	return 0;
+}
+
+void AddLight(vec3 position, vec3 color, float intensity)
+{
+	lights[NUM_LIGHTS].position = position;
+	lights[NUM_LIGHTS].color = color;
+	lights[NUM_LIGHTS].intensity = intensity;
+
+	for(int i = 0; i < SOFT_SHADOWS_SAMPLES; i++)
+	{
+		vec3 randomPos(lights[NUM_LIGHTS].position.x + (RandomNumber() * 0.08f), lights[NUM_LIGHTS].position.y + (RandomNumber() * 0.08f), lights[NUM_LIGHTS].position.z + (RandomNumber() * 0.08f));
+		randomPositions[(NUM_LIGHTS*SOFT_SHADOWS_SAMPLES) + i] = randomPos;
+	}
+
+	NUM_LIGHTS++;
 }
 
 
@@ -226,57 +239,63 @@ vec3 DirectLight(const Intersection& i)
 	int counter;
 	int samples;
 	vec3 result(0.0f,0.0f,0.0f);
+	vec3 result2(0,0,0);
 
 	if(SOFT_SHADOWS_ENABLED)
 		samples = SOFT_SHADOWS_SAMPLES;
 	else
 		samples = 1;
 
-	for(counter = 0; counter < samples; counter++)
+	for(int k = 0; k < NUM_LIGHTS; k++)
 	{
-		vec3 position;
-
-		if(samples != 1)
+		for(counter = 0; counter < samples; counter++)
 		{
-			position = randomPositions[counter];
+			vec3 position;
+			vec3 lightColor = lights[k].color * lights[k].intensity;
+
+			if(samples != 1)
+			{
+				position = randomPositions[(k*SOFT_SHADOWS_SAMPLES) + counter];
+			}
+			else
+			{
+				position = lights[k].position;
+			}
+
+			// r is distance from lightPos and intersection pos
+			float r = glm::distance(i.position, position);
+			float A = 4*M_PI*(r*r);
+			vec3 P = lightColor /= (float) samples;
+			// unit vector of direction from surface to light
+			vec3 rDir = glm::normalize(position - i.position);
+			// unit vector describing normal of surface
+			vec3 nDir = glm::normalize(triangles[i.triangleIndex].normal);
+			vec3 B = P/A;
+
+			// direct light intensity
+			vec3 D = B * max(glm::dot(rDir,nDir), 0.0f);
+
+			// direct shadows
+			Intersection j;
+			j.distance = std::numeric_limits<float>::max();
+			// to avoid comparing with self, trace from light and reverse direction
+			if (ClosestIntersection(position, -rDir, triangles, j, true, 0, 0))
+			{
+				// if intersection is closer to light source than self
+				if (j.distance < r*0.99f) // small multiplier to reduce noise
+					D = vec3 (0.0f, 0.0f, 0.0f);
+			}
+
+			// diffuse
+			// the color stored in the triangle is the reflected fraction of light
+			result += D;
 		}
-		else
-		{
-			position = lightPos;
-		}
-
-		// r is distance from lightPos and intersection pos
-		float r = glm::distance(i.position, position);
-		float A = 4*M_PI*(r*r);
-		vec3 P = lightColor;
-		// unit vector of direction from surface to light
-		vec3 rDir = glm::normalize(position - i.position);
-		// unit vector describing normal of surface
-		vec3 nDir = glm::normalize(triangles[i.triangleIndex].normal);
-		vec3 B = P/A;
-
-		// direct light intensity
-		vec3 D = B * max(glm::dot(rDir,nDir), 0.0f);
-
-		// direct shadows
-		Intersection j;
-		j.distance = std::numeric_limits<float>::max();
-		// to avoid comparing with self, trace from light and reverse direction
-		if (ClosestIntersection(position, -rDir, triangles, j, true, 0, 0))
-		{
-			// if intersection is closer to light source than self
-			if (j.distance < r*0.99f) // small multiplier to reduce noise
-				D = vec3 (0.0f, 0.0f, 0.0f);
-		}
-
-		// diffuse
-		// the color stored in the triangle is the reflected fraction of light
-		result += D;
+		//result /= (float) samples;
+		result2 += result;
 	}
-	
-	result /= (float)samples;
+
 	vec3 p = triangles[i.triangleIndex].color;
-	return result*p;
+	return result2*p;
 }
 
 void Update()
@@ -326,7 +345,7 @@ void Update()
 	// Light movement controls
 	if (keystate[SDLK_w])
 	{
-		lightPos += 0.1f*forward;
+		lights[0].position += 0.1f*forward;
 		for(int i = 0; i < SOFT_SHADOWS_SAMPLES; i++)
 		{
 			randomPositions[i] += 0.1f*forward;
@@ -334,7 +353,7 @@ void Update()
 	}
 	else if (keystate[SDLK_s])
 	{
-		lightPos -= 0.1f*forward;
+		lights[0].position -= 0.1f*forward;
 		for(int i = 0; i < SOFT_SHADOWS_SAMPLES; i++)
 		{
 			randomPositions[i] -= 0.1f*forward;
@@ -344,7 +363,7 @@ void Update()
 	// Light movement controls
 	if (keystate[SDLK_a])
 	{
-		lightPos -= 0.1f*right;
+		lights[0].position -= 0.1f*right;
 		for(int i = 0; i < SOFT_SHADOWS_SAMPLES; i++)
 		{
 			randomPositions[i] -= 0.1f*right;
@@ -352,7 +371,7 @@ void Update()
 	}
 	else if (keystate[SDLK_d])
 	{
-		lightPos += 0.1f*right;
+		lights[0].position += 0.1f*right;
 		for(int i = 0; i < SOFT_SHADOWS_SAMPLES; i++)
 		{
 			randomPositions[i] += 0.1f*right;
@@ -474,21 +493,29 @@ void CalculateDOF()
 		for (int x = 1; x < SCREEN_WIDTH - 1; x++)
 		{
 			vec3 finalColour(0.0f,0.0f,0.0f);
-			for(int z = floor(DOF_KERNEL_SIZE / -2.0f); z < ceil(DOF_KERNEL_SIZE / 2.0f); z++)
+			if(DOF_ENABLED)
 			{
-				for(int z2 = floor(DOF_KERNEL_SIZE / -2.0f); z2 < ceil(DOF_KERNEL_SIZE / 2.0f); z2++)
+				for(int z = floor(DOF_KERNEL_SIZE / -2.0f); z < ceil(DOF_KERNEL_SIZE / 2.0f); z++)
 				{
-					float weighting;
-					if(z == 0 && z2 == 0)
-						weighting = max((1 - focalDistances[y*SCREEN_HEIGHT+x]) * totalPixels, focalDistances[y*SCREEN_HEIGHT+x]);
-					else
-						weighting = min(abs(focalDistances[y*SCREEN_HEIGHT+x]), 1.0f);
+					for(int z2 = floor(DOF_KERNEL_SIZE / -2.0f); z2 < ceil(DOF_KERNEL_SIZE / 2.0f); z2++)
+					{
+						float weighting;
+						if(z == 0 && z2 == 0)
+							weighting = max((1 - focalDistances[y*SCREEN_HEIGHT+x]) * totalPixels, focalDistances[y*SCREEN_HEIGHT+x]);
+						else
+							weighting = min(abs(focalDistances[y*SCREEN_HEIGHT+x]), 1.0f);
 
 
-					finalColour += pixelColours[(y+z)*SCREEN_HEIGHT+(x+z2)] * weighting;
+						finalColour += pixelColours[(y+z)*SCREEN_HEIGHT+(x+z2)] * weighting;
+					}
 				}
+				finalColour /= totalPixels;
 			}
-			finalColour /= totalPixels;
+			else
+			{
+				finalColour = pixelColours[y*SCREEN_HEIGHT+x];
+			}
+
 			PutPixelSDL( screen, x, y, finalColour );
 		}
 	}

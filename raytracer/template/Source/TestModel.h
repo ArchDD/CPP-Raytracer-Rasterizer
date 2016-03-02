@@ -31,6 +31,19 @@ public:
 	}
 };
 
+// Defines light parameters
+class Light
+{
+public:
+	glm::vec3 position;
+	glm::vec3 color;
+	float intensity;
+
+	Light(glm::vec3 position, glm::vec3 color, float intensity)
+	 : position(position), color(color), intensity(intensity){}
+	 Light(){}
+};
+
 // Loads the Cornell Box. It is scaled to fill the volume:
 // -1 <= x <= +1
 // -1 <= y <= +1
