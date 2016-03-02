@@ -1,3 +1,11 @@
+/* ----------------------------------------------------------------------------*/
+/* ADDITIONAL FEATURES                                                         */
+// Cramer's Rule
+// Feature Toggling - Can toggle render features at runtime using 1-9 keys
+// Supersample Antialiasing (1 key) - An additional N^2 rays are fired per pixel and the resulting colour averaged
+// Soft Shadows (2 key) - A light is split into N lights with 1 / N intensity
+
+/* ----------------------------------------------------------------------------*/
 
 #include <iostream>
 #include <glm/glm.hpp>
@@ -114,6 +122,7 @@ int main( int argc, char* argv[] )
 	}
 
 	SDL_SaveBMP( screen, "screenshot.bmp" );
+	
 	return 0;
 }
 
@@ -375,6 +384,7 @@ void Draw()
 
 	if( SDL_MUSTLOCK(screen) )
 		SDL_UnlockSurface(screen);
+		
 
 	SDL_UpdateRect( screen, 0, 0, 0, 0 );
 }
