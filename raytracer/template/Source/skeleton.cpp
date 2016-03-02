@@ -36,7 +36,7 @@ bool SOFT_SHADOWS_ENABLED = false;
 int SOFT_SHADOWS_SAMPLES = 16;
 
 bool DOF_ENABLED = true;
-int DOF_KERNEL_SIZE = 3;
+int DOF_KERNEL_SIZE = 8;
 float FOCAL_LENGTH = 0.5f;
 
 /* KEY STATES                                                                  */
@@ -73,8 +73,10 @@ vec3 indirectLight = 0.2f*vec3(1,1,1);
 // Store jittered light positions for soft shadows. Up to 64 samples allowed.
 vec3 randomPositions[64];
 
+// Depth of field data containers
 float focalDistances[SCREEN_WIDTH * SCREEN_HEIGHT];
 vec3 pixelColours[SCREEN_WIDTH * SCREEN_HEIGHT];
+vec3 blurredPixels[SCREEN_WIDTH * SCREEN_HEIGHT];
 
 struct Intersection
 {
@@ -91,9 +93,10 @@ vector<Intersection> closestIntersections;
 void Update();
 void Draw();
 bool ClosestIntersection(vec3 start, vec3 dir, const vector<Triangle>& triangles,
-						 Intersection& closestIntersection);
+						 Intersection& closestIntersection, bool isLight, int x, int y);
 vec3 DirectLight(const Intersection& i);
 float RandomNumber();
+void CalculateDOF();
 
 int main( int argc, char* argv[] )
 {
@@ -142,6 +145,7 @@ int main( int argc, char* argv[] )
 	{
 		Update();
 		Draw();
+		CalculateDOF();
 		// Reset intersection distances
 		for(i = 0; i < SCREEN_WIDTH*SCREEN_HEIGHT; i++)
 		{
@@ -156,7 +160,7 @@ int main( int argc, char* argv[] )
 
 
 bool ClosestIntersection(vec3 start, vec3 dir, const vector<Triangle>& triangles,
-						 Intersection& closestIntersection)
+						 Intersection& closestIntersection, bool isLight, int x, int y)
 {
 	bool intersection = false;
 	// check all triangles for intersections
@@ -201,6 +205,8 @@ bool ClosestIntersection(vec3 start, vec3 dir, const vector<Triangle>& triangles
 				closestIntersection.position = pos;
 				closestIntersection.distance = distance;
 				closestIntersection.triangleIndex = i;
+				if(!isLight) 
+					focalDistances[y*SCREEN_HEIGHT + x] = distance - FOCAL_LENGTH;
 			}
 			intersection = true;
 		}
@@ -256,7 +262,7 @@ vec3 DirectLight(const Intersection& i)
 		Intersection j;
 		j.distance = std::numeric_limits<float>::max();
 		// to avoid comparing with self, trace from light and reverse direction
-		if (ClosestIntersection(position, -rDir, triangles, j))
+		if (ClosestIntersection(position, -rDir, triangles, j, true, 0, 0))
 		{
 			// if intersection is closer to light source than self
 			if (j.distance < r*0.99f) // small multiplier to reduce noise
@@ -381,12 +387,23 @@ void Update()
 	else if (!keystate[SDLK_3])
 		DOF_key_pressed = false;
 
+	if (keystate[SDLK_z])
+	{
+		FOCAL_LENGTH += 0.1f;
+		cout << "Focal length is " << FOCAL_LENGTH << endl;
+	}
+		
+	if (keystate[SDLK_x])
+	{
+		FOCAL_LENGTH -= 0.1f;
+		cout << "Focal length is " << FOCAL_LENGTH << endl;
+	}
+		
+
 }
 
 void Draw()
 {
-	if( SDL_MUSTLOCK(screen) )
-		SDL_LockSurface(screen);
 
 	// trace a ray for every pixel
 	int x, y, z, z2;
@@ -419,7 +436,7 @@ void Draw()
 				{
 					// work out vectors from rotation
 					vec3 d(x1-(float)SCREEN_WIDTH/2.0f, y1 - (float)SCREEN_HEIGHT/2.0f, focalLength);
-					if ( ClosestIntersection(cameraPos, cameraRot*d, triangles, closestIntersections[y*SCREEN_HEIGHT + x] ))
+					if ( ClosestIntersection(cameraPos, cameraRot*d, triangles, closestIntersections[y*SCREEN_HEIGHT + x], false, x, y ))
 					{
 						// if intersect, use color of closest triangle
 						vec3 color = DirectLight(closestIntersections[y*SCREEN_HEIGHT+x]);
@@ -439,9 +456,40 @@ void Draw()
 			}
 
 			avgColor /= (float)(realSamples * realSamples);
+			pixelColours[y*SCREEN_HEIGHT + x] = avgColor;
 
-			PutPixelSDL( screen, x, y, avgColor );
+		}
+	}
+}
 
+void CalculateDOF()
+{
+	if( SDL_MUSTLOCK(screen) )
+		SDL_LockSurface(screen);
+
+	float totalPixels = DOF_KERNEL_SIZE * DOF_KERNEL_SIZE;
+
+	for (int y = 1; y < SCREEN_HEIGHT - 1; y++)
+	{
+		for (int x = 1; x < SCREEN_WIDTH - 1; x++)
+		{
+			vec3 finalColour(0.0f,0.0f,0.0f);
+			for(int z = floor(DOF_KERNEL_SIZE / -2.0f); z < ceil(DOF_KERNEL_SIZE / 2.0f); z++)
+			{
+				for(int z2 = floor(DOF_KERNEL_SIZE / -2.0f); z2 < ceil(DOF_KERNEL_SIZE / 2.0f); z2++)
+				{
+					float weighting;
+					if(z == 0 && z2 == 0)
+						weighting = max((1 - focalDistances[y*SCREEN_HEIGHT+x]) * totalPixels, focalDistances[y*SCREEN_HEIGHT+x]);
+					else
+						weighting = min(abs(focalDistances[y*SCREEN_HEIGHT+x]), 1.0f);
+
+
+					finalColour += pixelColours[(y+z)*SCREEN_HEIGHT+(x+z2)] * weighting;
+				}
+			}
+			finalColour /= totalPixels;
+			PutPixelSDL( screen, x, y, finalColour );
 		}
 	}
 
@@ -450,4 +498,5 @@ void Draw()
 		
 
 	SDL_UpdateRect( screen, 0, 0, 0, 0 );
+
 }
