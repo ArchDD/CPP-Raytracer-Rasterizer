@@ -5,7 +5,8 @@
 // Feature Toggling - Can toggle render features at runtime using 1-3 keys
 // Supersample Antialiasing (1 key) - An additional N^2 rays are fired per pixel and the resulting colour averaged to smoothen jagged edges
 // Soft Shadows (2 key) - A light is split into N lights with 1 / N intensity and a random position jitter added to simulate soft shadows
-// Depth of Field (3 key) - Distance vectors relative to focal length stored for each pixel, used to set neighbour weightings in blur kernel
+// Depth of Field (3 to toggle, 4-5 to change focal length) - Distance vectors relative to focal length stored for each pixel, 
+// used to set neighbour weightings in blur kernel
 
 /* ----------------------------------------------------------------------------*/
 
@@ -407,13 +408,13 @@ void Update()
 	else if (!keystate[SDLK_3])
 		DOF_key_pressed = false;
 
-	if (keystate[SDLK_z])
+	if (keystate[SDLK_4])
 	{
 		FOCAL_LENGTH += 0.1f;
 		cout << "Focal length is " << FOCAL_LENGTH << endl;
 	}
 		
-	if (keystate[SDLK_x])
+	if (keystate[SDLK_5])
 	{
 		FOCAL_LENGTH -= 0.1f;
 		cout << "Focal length is " << FOCAL_LENGTH << endl;
