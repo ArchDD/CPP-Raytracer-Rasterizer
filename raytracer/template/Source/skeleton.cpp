@@ -18,18 +18,18 @@ vector<Triangle> triangles;
 /* RENDER SETTINGS                                                             */
 //#define REALTIME
 #define NUM_THREADS 4
-#define TRACE_DEPTH 2
 
-bool AA_ENABLED = true;
+bool AA_ENABLED = false;
 int AA_SAMPLES = 3;
 
-bool SOFT_SHADOWS_ENABLED = true;
-int SOFT_SHADOWS_SAMPLES = 4;
+bool SOFT_SHADOWS_ENABLED = false;
+int SOFT_SHADOWS_SAMPLES = 2;
 
 /* KEY STATES                                                                  */
 // These variables aren't ideal, it'd be better if we could find an SDL function that gives OnKeyDown events rather than
 // simply checking if the key is pressed
 bool AA_key_pressed = false;
+bool shadows_key_pressed = false;
 
 // Use smaller parameters when camera moving for realtime performance
 #ifdef REALTIME
@@ -72,7 +72,6 @@ void Draw();
 bool ClosestIntersection(vec3 start, vec3 dir, const vector<Triangle>& triangles,
 						 Intersection& closestIntersection);
 vec3 DirectLight(const Intersection& i);
-void Raytrace(int currentDepth);
 
 int main( int argc, char* argv[] )
 {
@@ -173,38 +172,67 @@ bool ClosestIntersection(vec3 start, vec3 dir, const vector<Triangle>& triangles
 	return intersection;
 }
 
+float RandomNumber()
+{
+	return ((double) rand() / (RAND_MAX)) - 0.5f;
+}
+
 vec3 DirectLight(const Intersection& i)
 {
-	// r is distance from lightPos and intersection pos
-	float r = glm::distance(i.position, lightPos);
-	float A = 4*M_PI*(r*r);
-	vec3 P = lightColor;
-	// unit vector of direction from surface to light
-	vec3 rDir = glm::normalize(lightPos - i.position);
-	// unit vector describing normal of surface
-	vec3 nDir = glm::normalize(triangles[i.triangleIndex].normal);
-	vec3 B = P/A;
+	int counter;
+	int samples;
+	vec3 result(0.0f,0.0f,0.0f);
 
-	// direct light intensity
-	vec3 D = B * max(glm::dot(rDir,nDir), 0.0f);
+	if(SOFT_SHADOWS_ENABLED)
+		samples = SOFT_SHADOWS_SAMPLES;
+	else
+		samples = 1;
 
-	// direct shadows
-	Intersection j;
-	j.distance = std::numeric_limits<float>::max();
-	// to avoid comparing with self, trace from light and reverse direction
-	if (ClosestIntersection(lightPos, -rDir, triangles, j))
+	for(counter = 0; counter < samples; counter++)
 	{
-		// if intersection is closer to light source than self
-		if (j.distance < r*0.99f) // small multiplier to reduce noise
-			D = vec3 (0.0f, 0.0f, 0.0f);
+		vec3 position;
+		if(samples != 1)
+		{
+			vec3 randomPos(lightPos.x + (RandomNumber() * 0.1f), lightPos.y + (RandomNumber() * 0.05f), lightPos.z + (RandomNumber() * 0.05f));
+			position = randomPos;
+		}
+		else
+		{
+			position = lightPos;
+		}
+
+		// r is distance from lightPos and intersection pos
+		float r = glm::distance(i.position, position);
+		float A = 4*M_PI*(r*r);
+		vec3 P = lightColor;
+		// unit vector of direction from surface to light
+		vec3 rDir = glm::normalize(position - i.position);
+		// unit vector describing normal of surface
+		vec3 nDir = glm::normalize(triangles[i.triangleIndex].normal);
+		vec3 B = P/A;
+
+		// direct light intensity
+		vec3 D = B * max(glm::dot(rDir,nDir), 0.0f);
+
+		// direct shadows
+		Intersection j;
+		j.distance = std::numeric_limits<float>::max();
+		// to avoid comparing with self, trace from light and reverse direction
+		if (ClosestIntersection(position, -rDir, triangles, j))
+		{
+			// if intersection is closer to light source than self
+			if (j.distance < r*0.99f) // small multiplier to reduce noise
+				D = vec3 (0.0f, 0.0f, 0.0f);
+		}
+
+		// diffuse
+		// the color stored in the triangle is the reflected fraction of light
+		result += D;
 	}
-
-	// diffuse
-	// the color stored in the triangle is the reflected fraction of light
+	
+	result /= (float)samples;
 	vec3 p = triangles[i.triangleIndex].color;
-	vec3 R = p*D;
-
-	return R;
+	return result*p;
 }
 
 void Update()
@@ -259,6 +287,14 @@ void Update()
 	}
 	else if (!keystate[SDLK_1])
 		AA_key_pressed = false;
+
+	if(!shadows_key_pressed && keystate[SDLK_2])
+	{
+		SOFT_SHADOWS_ENABLED = !SOFT_SHADOWS_ENABLED;
+		shadows_key_pressed = true;
+	}
+	else if (!keystate[SDLK_2])
+		shadows_key_pressed = false;
 	
 
 	// Light movement controls
@@ -288,65 +324,57 @@ void Draw()
 	if( SDL_MUSTLOCK(screen) )
 		SDL_LockSurface(screen);
 
-	Raytrace(0);
+		// trace a ray for every pixel
+	int x, y, z, z2;
+	int realSamples; // Number of AA samples to use. Set to 1 if AA is disabled
+
+	if(AA_ENABLED)
+		realSamples = AA_SAMPLES;
+	else
+		realSamples = 1;
+
+	for (y = 0; y < SCREEN_HEIGHT; y++)
+	{
+		for (x = 0; x < SCREEN_WIDTH; x++)
+		{
+			vec3 avgColor(0.0f,0.0f,0.0f);
+			float y1 = y - 0.5f;
+
+			for(z = 0; z < realSamples; z++)
+			{
+				float x1 = x - 0.5f;
+				for(z2 = 0; z2 < realSamples; z2++)
+				{
+					// work out vectors from rotation
+					vec3 d(x1-(float)SCREEN_WIDTH/2.0f, y1 - (float)SCREEN_HEIGHT/2.0f, focalLength);
+					if ( ClosestIntersection(cameraPos, cameraRot*d, triangles, closestIntersections[y*SCREEN_HEIGHT + x] ))
+					{
+						// if intersect, use color of closest triangle
+						vec3 color = DirectLight(closestIntersections[y*SCREEN_HEIGHT+x]);
+						vec3 D = color;
+						vec3 N = indirectLight;
+						vec3 T = D + N;
+						vec3 p = triangles[closestIntersections[y*SCREEN_HEIGHT+x].triangleIndex].color;
+						vec3 R = p*T;
+
+						// direct shadows cast to point from light
+						avgColor += R;
+
+						x1 += (1.0f / (float) realSamples);
+					}
+				}
+				y1 += (1.0f / (float) (realSamples));
+			}
+
+			avgColor /= (float)(realSamples * realSamples);
+
+			PutPixelSDL( screen, x, y, avgColor );
+
+		}
+	}
 
 	if( SDL_MUSTLOCK(screen) )
 		SDL_UnlockSurface(screen);
 
 	SDL_UpdateRect( screen, 0, 0, 0, 0 );
-}
-
-void Raytrace(int currentDepth)
-{
-	if(currentDepth < TRACE_DEPTH)
-	{
-		// trace a ray for every pixel
-		int x, y, z, z2;
-		int realSamples; // Number of AA samples to use. Set to 1 if AA is disabled
-
-		if(AA_ENABLED)
-			realSamples = AA_SAMPLES;
-		else
-			realSamples = 1;
-
-		for (y = 0; y < SCREEN_HEIGHT; y++)
-		{
-			for (x = 0; x < SCREEN_WIDTH; x++)
-			{
-				vec3 avgColor(0.0f,0.0f,0.0f);
-				float y1 = y - 0.5f;
-
-				for(z = 0; z < realSamples; z++)
-				{
-					float x1 = x - 0.5f;
-					for(z2 = 0; z2 < realSamples; z2++)
-					{
-						// work out vectors from rotation
-						vec3 d(x1-(float)SCREEN_WIDTH/2.0f, y1 - (float)SCREEN_HEIGHT/2.0f, focalLength);
-						if ( ClosestIntersection(cameraPos, cameraRot*d, triangles, closestIntersections[y*SCREEN_HEIGHT + x] ))
-						{
-							// if intersect, use color of closest triangle
-							vec3 color = DirectLight(closestIntersections[y*SCREEN_HEIGHT+x]);
-							vec3 D = color;
-							vec3 N = indirectLight;
-							vec3 T = D + N;
-							vec3 p = triangles[closestIntersections[y*SCREEN_HEIGHT+x].triangleIndex].color;
-							vec3 R = p*T;
-
-							// direct shadows cast to point from light
-							avgColor += R;
-
-							x1 += (1.0f / (float) realSamples);
-						}
-					}
-					y1 += (1.0f / (float) (realSamples));
-				}
-
-				avgColor /= (float)(realSamples * realSamples);
-
-				PutPixelSDL( screen, x, y, avgColor );
-
-			}
-		}
-	}
 }
