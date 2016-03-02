@@ -192,6 +192,7 @@ bool ClosestIntersection(vec3 start, vec3 dir, const vector<Triangle>& triangles
 	return intersection;
 }
 
+// Returns a random number between -0.5 and 0.5
 float RandomNumber()
 {
 	return ((double) rand() / (RAND_MAX)) - 0.5f;
@@ -363,6 +364,7 @@ void Draw()
 		// trace a ray for every pixel
 	int x, y, z, z2;
 	int realSamples; // Number of AA samples to use. Set to 1 if AA is disabled
+	float x1, y1;
 
 	if(AA_ENABLED)
 		realSamples = AA_SAMPLES;
@@ -374,11 +376,18 @@ void Draw()
 		for (x = 0; x < SCREEN_WIDTH; x++)
 		{
 			vec3 avgColor(0.0f,0.0f,0.0f);
-			float y1 = y - 0.5f;
+			if(realSamples > 1) 
+				y1 = y - 0.5f;
+			else
+				y1 = y;
 
 			for(z = 0; z < realSamples; z++)
 			{
-				float x1 = x - 0.5f;
+				if(realSamples > 1) 
+					x1 = x - 0.5f;
+				else
+					x1 = x;
+
 				for(z2 = 0; z2 < realSamples; z2++)
 				{
 					// work out vectors from rotation
@@ -396,10 +405,10 @@ void Draw()
 						// direct shadows cast to point from light
 						avgColor += R;
 
-						x1 += (1.0f / (float) realSamples);
+						x1 += (1.0f / (float) (realSamples - 1));
 					}
 				}
-				y1 += (1.0f / (float) (realSamples));
+				y1 += (1.0f / (float) (realSamples - 1));
 			}
 
 			avgColor /= (float)(realSamples * realSamples);
