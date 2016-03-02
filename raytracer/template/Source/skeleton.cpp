@@ -1,9 +1,11 @@
 /* ----------------------------------------------------------------------------*/
 /* ADDITIONAL FEATURES                                                         */
 // Cramer's Rule
-// Feature Toggling - Can toggle render features at runtime using 1-9 keys
+// Modular lighting system. Allows for multiple lights, properties defined in Light class in TestModel.h
+// Feature Toggling - Can toggle render features at runtime using 1-3 keys
 // Supersample Antialiasing (1 key) - An additional N^2 rays are fired per pixel and the resulting colour averaged to smoothen jagged edges
 // Soft Shadows (2 key) - A light is split into N lights with 1 / N intensity and a random position jitter added to simulate soft shadows
+// Depth of Field (3 key) - Distance vectors relative to focal length stored for each pixel, used to set neighbour weightings in blur kernel
 
 /* ----------------------------------------------------------------------------*/
 
@@ -103,8 +105,7 @@ void AddLight(vec3 position, vec3 color, float intensity);
 int main( int argc, char* argv[] )
 {
 	screen = InitializeSDL( SCREEN_WIDTH, SCREEN_HEIGHT );
-	AddLight(vec3(0, -0.5f, -0.7f), vec3(1,1,1), 7 );
-	AddLight(vec3(-0.2f, -0.2f, -0.3f), vec3(1,0,0), 7 );
+	AddLight(vec3(0, -0.5f, -0.7f), vec3(1,1,1), 14 );
 
 	// Request as many threads as the system can provide
 	if(NUM_THREADS == 0) 
@@ -501,15 +502,15 @@ void CalculateDOF()
 					{
 						float weighting;
 						if(z == 0 && z2 == 0)
-							weighting = max((1 - focalDistances[y*SCREEN_HEIGHT+x]) * totalPixels, focalDistances[y*SCREEN_HEIGHT+x]);
+							weighting = 1 - (min(abs(focalDistances[y*SCREEN_HEIGHT+x]), 1.0f) * ((totalPixels - 1) / totalPixels) );
 						else
-							weighting = min(abs(focalDistances[y*SCREEN_HEIGHT+x]), 1.0f);
+							weighting = min(abs(focalDistances[y*SCREEN_HEIGHT+x]), 1.0f) * (1.0f / totalPixels);
 
 
 						finalColour += pixelColours[(y+z)*SCREEN_HEIGHT+(x+z2)] * weighting;
 					}
 				}
-				finalColour /= totalPixels;
+				//finalColour /= totalPixels;
 			}
 			else
 			{
