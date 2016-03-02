@@ -321,18 +321,18 @@ void Update()
 	// Light movement controls
 	if (keystate[SDLK_w])
 	{
-		lightPos += 1.0f*forward;
+		lightPos += 0.1f*forward;
 		for(int i = 0; i < SOFT_SHADOWS_SAMPLES; i++)
 		{
-			randomPositions[i] += 1.0f*forward;
+			randomPositions[i] += 0.1f*forward;
 		}
 	}
 	else if (keystate[SDLK_s])
 	{
-		lightPos -= 1.0f*forward;
+		lightPos -= 0.1f*forward;
 		for(int i = 0; i < SOFT_SHADOWS_SAMPLES; i++)
 		{
-			randomPositions[i] -= 1.0f*forward;
+			randomPositions[i] -= 0.1f*forward;
 		}
 	}
 
