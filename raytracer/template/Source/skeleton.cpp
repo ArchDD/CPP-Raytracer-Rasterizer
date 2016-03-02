@@ -2,8 +2,8 @@
 /* ADDITIONAL FEATURES                                                         */
 // Cramer's Rule
 // Feature Toggling - Can toggle render features at runtime using 1-9 keys
-// Supersample Antialiasing (1 key) - An additional N^2 rays are fired per pixel and the resulting colour averaged
-// Soft Shadows (2 key) - A light is split into N lights with 1 / N intensity
+// Supersample Antialiasing (1 key) - An additional N^2 rays are fired per pixel and the resulting colour averaged to smoothen jagged edges
+// Soft Shadows (2 key) - A light is split into N lights with 1 / N intensity and a random position jitter added to simulate soft shadows
 
 /* ----------------------------------------------------------------------------*/
 
@@ -31,7 +31,7 @@ bool AA_ENABLED = false;
 int AA_SAMPLES = 3;
 
 bool SOFT_SHADOWS_ENABLED = false;
-int SOFT_SHADOWS_SAMPLES = 2;
+int SOFT_SHADOWS_SAMPLES = 16;
 
 /* KEY STATES                                                                  */
 // These variables aren't ideal, it'd be better if we could find an SDL function that gives OnKeyDown events rather than
@@ -63,6 +63,9 @@ vec3 lightPos(0, -0.5f, -0.7f);
 vec3 lightColor = 14.0f * vec3(1,1,1);
 vec3 indirectLight = 0.2f*vec3(1,1,1);
 
+// Store jittered light positions for soft shadows. Up to 64 samples allowed.
+vec3 randomPositions[64];
+
 struct Intersection
 {
 	vec3 position;
@@ -80,6 +83,7 @@ void Draw();
 bool ClosestIntersection(vec3 start, vec3 dir, const vector<Triangle>& triangles,
 						 Intersection& closestIntersection);
 vec3 DirectLight(const Intersection& i);
+float RandomNumber();
 
 int main( int argc, char* argv[] )
 {
@@ -110,6 +114,13 @@ int main( int argc, char* argv[] )
 
 	cameraRot[1][1] = 1.0f;
 
+	// Generate jittered light positions
+	for(i = 0; i < SOFT_SHADOWS_SAMPLES; i++)
+	{
+		vec3 randomPos(lightPos.x + (RandomNumber() * 0.1f), lightPos.y + (RandomNumber() * 0.1f), lightPos.z + (RandomNumber() * 0.1f));
+		randomPositions[i] = randomPos;
+	}
+
 	while( NoQuitMessageSDL() )
 	{
 		Update();
@@ -122,7 +133,7 @@ int main( int argc, char* argv[] )
 	}
 
 	SDL_SaveBMP( screen, "screenshot.bmp" );
-	
+
 	return 0;
 }
 
@@ -200,10 +211,10 @@ vec3 DirectLight(const Intersection& i)
 	for(counter = 0; counter < samples; counter++)
 	{
 		vec3 position;
+
 		if(samples != 1)
 		{
-			vec3 randomPos(lightPos.x + (RandomNumber() * 0.1f), lightPos.y + (RandomNumber() * 0.05f), lightPos.z + (RandomNumber() * 0.05f));
-			position = randomPos;
+			position = randomPositions[counter];
 		}
 		else
 		{
@@ -310,20 +321,36 @@ void Update()
 	if (keystate[SDLK_w])
 	{
 		lightPos += 1.0f*forward;
+		for(int i = 0; i < SOFT_SHADOWS_SAMPLES; i++)
+		{
+			randomPositions[i] += 1.0f*forward;
+		}
 	}
 	else if (keystate[SDLK_s])
 	{
 		lightPos -= 1.0f*forward;
+		for(int i = 0; i < SOFT_SHADOWS_SAMPLES; i++)
+		{
+			randomPositions[i] -= 1.0f*forward;
+		}
 	}
 
 	// Light movement controls
 	if (keystate[SDLK_a])
 	{
 		lightPos -= 0.1f*right;
+		for(int i = 0; i < SOFT_SHADOWS_SAMPLES; i++)
+		{
+			randomPositions[i] -= 0.1f*right;
+		}
 	}
 	else if (keystate[SDLK_d])
 	{
 		lightPos += 0.1f*right;
+		for(int i = 0; i < SOFT_SHADOWS_SAMPLES; i++)
+		{
+			randomPositions[i] += 0.1f*right;
+		}
 	}
 
 }
