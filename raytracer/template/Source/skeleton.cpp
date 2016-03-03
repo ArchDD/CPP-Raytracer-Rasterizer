@@ -2,7 +2,7 @@
 /* ADDITIONAL FEATURES                                                         */
 // Cramer's Rule
 // Modular lighting system. Allows for multiple lights, properties defined in Light class in TestModel.h
-// Feature Toggling - Can toggle render features at runtime using 1-3 keys
+// Feature Toggling - Can toggle render features at runtime using 1-5 keys
 // Supersample Antialiasing (1 key) - An additional N^2 rays are fired per pixel and the resulting colour averaged to smoothen jagged edges
 // Soft Shadows (2 key) - A light is split into N lights with 1 / N intensity and a random position jitter added to simulate soft shadows
 // Depth of Field (3 to toggle, 4-5 to change focal length) - Distance vectors relative to focal length stored for each pixel, 
@@ -40,7 +40,7 @@ int SOFT_SHADOWS_SAMPLES = 16;
 
 bool DOF_ENABLED = false;
 int DOF_KERNEL_SIZE = 8;
-float FOCAL_LENGTH = 0.5f;
+float FOCAL_LENGTH = 1.3f;
 
 int NUM_LIGHTS = 0;
 Light lights[32];
@@ -497,9 +497,9 @@ void CalculateDOF()
 			vec3 finalColour(0.0f,0.0f,0.0f);
 			if(DOF_ENABLED)
 			{
-				for(int z = floor(DOF_KERNEL_SIZE / -2.0f); z < ceil(DOF_KERNEL_SIZE / 2.0f); z++)
+				for(int z = ceil(DOF_KERNEL_SIZE / -2.0f); z < ceil(DOF_KERNEL_SIZE / 2.0f); z++)
 				{
-					for(int z2 = floor(DOF_KERNEL_SIZE / -2.0f); z2 < ceil(DOF_KERNEL_SIZE / 2.0f); z2++)
+					for(int z2 = ceil(DOF_KERNEL_SIZE / -2.0f); z2 < ceil(DOF_KERNEL_SIZE / 2.0f); z2++)
 					{
 						float weighting;
 						if(z == 0 && z2 == 0)
