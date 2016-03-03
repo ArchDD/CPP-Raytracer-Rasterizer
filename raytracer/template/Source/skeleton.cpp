@@ -2,11 +2,12 @@
 /* ADDITIONAL FEATURES                                                         */
 // Cramer's Rule
 // Modular lighting system. Allows for multiple lights, properties defined in Light class in TestModel.h
-// Feature Toggling - Can toggle render features at runtime using 1-5 keys
+// Feature Toggling - Can toggle render features at runtime using 1-6 keys
 // Supersample Antialiasing (1 key) - An additional N^2 rays are fired per pixel and the resulting colour averaged to smoothen jagged edges
 // Soft Shadows (2 key) - A light is split into N lights with 1 / N intensity and a random position jitter added to simulate soft shadows
 // Depth of Field (3 to toggle, 4-5 to change focal length) - Distance vectors relative to focal length stored for each pixel, 
 // used to set neighbour weightings in blur kernel
+// Multithreading (6 key) - Uses OpenMP to do calculations across multiple threads
 
 /* ----------------------------------------------------------------------------*/
 
@@ -51,6 +52,7 @@ Light lights[32];
 bool AA_key_pressed = false;
 bool shadows_key_pressed = false;
 bool DOF_key_pressed = false;
+bool OMP_key_pressed = false;
 
 // Use smaller parameters when camera moving for realtime performance
 #ifdef REALTIME
@@ -419,6 +421,15 @@ void Update()
 		FOCAL_LENGTH -= 0.1f;
 		cout << "Focal length is " << FOCAL_LENGTH << endl;
 	}
+
+	if(!OMP_key_pressed && keystate[SDLK_6])
+	{
+		MULTITHREADING_ENABLED = !MULTITHREADING_ENABLED;
+		cout << "Multithreading toggled to " << MULTITHREADING_ENABLED << endl;
+		OMP_key_pressed = true;
+	}
+	else if (!keystate[SDLK_6])
+		OMP_key_pressed = false;
 		
 
 }
