@@ -1,13 +1,13 @@
 /* ----------------------------------------------------------------------------*/
 /* ADDITIONAL FEATURES                                                         */
 // Cramer's Rule
-// Modular lighting system. Allows for multiple lights, properties defined in Light class in TestModel.h
-// Feature Toggling - Can toggle render features at runtime using 1-6 keys
-// Supersample Antialiasing (1 key) - An additional N^2 rays are fired per pixel and the resulting colour averaged to smoothen jagged edges
-// Soft Shadows (2 key) - A light is split into N lights with 1 / N intensity and a random position jitter added to simulate soft shadows
-// Depth of Field (3 to toggle, 4-5 to change focal length) - Distance vectors relative to focal length stored for each pixel, 
+// Feature Toggling - Can toggle render features and settings at runtime
+// Modular lighting system (2 to generate random light, 3 to delete newest light). Allows for multiple lights, properties defined in Light class in TestModel.h
+// Multithreading (4 to toggle, 5-6 to change number of threads) - Uses OpenMP to do calculations across multiple threads
+// Supersample Antialiasing (7 key) - An additional N^2 rays are fired per pixel and the resulting colour averaged to smoothen jagged edges
+// Soft Shadows (8 key) - A light is split into N lights with 1 / N intensity and a random position jitter added to simulate soft shadows
+// Depth of Field (9 to toggle, +/- to change focal length) - Distance vectors relative to focal length stored for each pixel, 
 // used to set neighbour weightings in blur kernel
-// Multithreading (6 to toggle, 7-8 to change number of threads) - Uses OpenMP to do calculations across multiple threads
 
 /* ----------------------------------------------------------------------------*/
 
@@ -30,7 +30,7 @@ vector<Triangle> triangles;
 /* RENDER SETTINGS                                                             */
 //#define REALTIME
 
-bool MULTITHREADING_ENABLED = true;
+bool MULTITHREADING_ENABLED = false;
 int NUM_THREADS; // Set by code
 int SAVED_THREADS; // Stores thread value when changed
 
@@ -54,6 +54,8 @@ bool DOF_key_pressed = false;
 bool OMP_key_pressed = false;
 bool thread_add_key_pressed = false;
 bool thread_subtract_key_pressed = false;
+bool delete_light_key_pressed = false;
+bool add_light_key_pressed = false;
 
 // Use smaller parameters when camera moving for realtime performance
 #ifdef REALTIME
@@ -105,6 +107,7 @@ vec3 DirectLight(const Intersection& i);
 float RandomNumber();
 void CalculateDOF();
 void AddLight(vec3 position, vec3 color, float intensity);
+void DeleteLight();
 
 int main( int argc, char* argv[] )
 {
@@ -125,7 +128,12 @@ int main( int argc, char* argv[] )
     }
 
     if(MULTITHREADING_ENABLED)
+    {
     	cout << "Multithreading enabled with " << NUM_THREADS << " threads" << endl;
+    }
+    else
+    	omp_set_num_threads(1);
+    	
 	if(AA_ENABLED)
 		cout << "Antialiasing enabled with samples: " << AA_SAMPLES << endl;
 	if(SOFT_SHADOWS_ENABLED)
@@ -183,6 +191,12 @@ void AddLight(vec3 position, vec3 color, float intensity)
 	}
 
 	NUM_LIGHTS++;
+}
+
+void DeleteLight()
+{
+	if(NUM_LIGHTS > 0)
+		NUM_LIGHTS--;
 }
 
 
@@ -394,46 +408,46 @@ void Update()
 	}
 
 	// Need to check if key has been released to stop the option toggling every frame
-	if(!AA_key_pressed && keystate[SDLK_1])
+	if(!AA_key_pressed && keystate[SDLK_7])
 	{
 		AA_ENABLED = !AA_ENABLED;
 		cout << "Antialiasing toggled to " << AA_ENABLED << endl;
 		AA_key_pressed = true;
 	}
-	else if (!keystate[SDLK_1])
+	else if (!keystate[SDLK_7])
 		AA_key_pressed = false;
 
-	if(!shadows_key_pressed && keystate[SDLK_2])
+	if(!shadows_key_pressed && keystate[SDLK_8])
 	{
 		SOFT_SHADOWS_ENABLED = !SOFT_SHADOWS_ENABLED;
 		cout << "Soft Shadows toggled to " << SOFT_SHADOWS_ENABLED << endl;
 		shadows_key_pressed = true;
 	}
-	else if (!keystate[SDLK_2])
+	else if (!keystate[SDLK_8])
 		shadows_key_pressed = false;
 
-	if(!DOF_key_pressed && keystate[SDLK_3])
+	if(!DOF_key_pressed && keystate[SDLK_9])
 	{
 		DOF_ENABLED = !DOF_ENABLED;
 		cout << "Depth of Field toggled to " << DOF_ENABLED << endl;
 		DOF_key_pressed = true;
 	}
-	else if (!keystate[SDLK_3])
+	else if (!keystate[SDLK_9])
 		DOF_key_pressed = false;
 
-	if (keystate[SDLK_4])
+	if (keystate[SDLK_PLUS])
 	{
 		FOCAL_LENGTH += 0.1f;
 		cout << "Focal length is " << FOCAL_LENGTH << endl;
 	}
 		
-	if (keystate[SDLK_5])
+	if (keystate[SDLK_MINUS])
 	{
 		FOCAL_LENGTH -= 0.1f;
 		cout << "Focal length is " << FOCAL_LENGTH << endl;
 	}
 
-	if(!OMP_key_pressed && keystate[SDLK_6])
+	if(!OMP_key_pressed && keystate[SDLK_4])
 	{
 		MULTITHREADING_ENABLED = !MULTITHREADING_ENABLED;
 		if(!MULTITHREADING_ENABLED)
@@ -444,10 +458,10 @@ void Update()
 		cout << "Multithreading toggled to " << MULTITHREADING_ENABLED << endl;
 		OMP_key_pressed = true;
 	}
-	else if (!keystate[SDLK_6])
+	else if (!keystate[SDLK_4])
 		OMP_key_pressed = false;
 
-	if(!thread_add_key_pressed && keystate[SDLK_7])
+	if(!thread_add_key_pressed && keystate[SDLK_6])
 	{
 		NUM_THREADS++;
 		SAVED_THREADS = NUM_THREADS;
@@ -455,10 +469,10 @@ void Update()
 		cout << "Threads increased to " << NUM_THREADS << endl;
 		thread_add_key_pressed = true;
 	}
-	else if (!keystate[SDLK_7])
+	else if (!keystate[SDLK_6])
 		thread_add_key_pressed = false;
 
-	if(!thread_subtract_key_pressed && keystate[SDLK_8])
+	if(!thread_subtract_key_pressed && keystate[SDLK_5])
 	{
 		NUM_THREADS--;
 		SAVED_THREADS = NUM_THREADS;
@@ -466,8 +480,26 @@ void Update()
 		cout << "Threads decreased to " << NUM_THREADS << endl;
 		thread_subtract_key_pressed = true;
 	}
-	else if (!keystate[SDLK_8])
+	else if (!keystate[SDLK_5])
 		thread_subtract_key_pressed = false;
+
+	if(!add_light_key_pressed && keystate[SDLK_2])
+	{
+		AddLight(vec3(RandomNumber() * 2.0f, RandomNumber() * 2.0f, RandomNumber() * 2.0f),vec3(abs(RandomNumber()) * 2.0f + 0.2f,abs(RandomNumber()) * 2.0f + 0.2f,abs(RandomNumber()) * 2.0f + 0.2f),abs(RandomNumber()) * 20.0f);
+		cout << "Spawned a light" << endl;
+		add_light_key_pressed = true;
+	}
+	else if (!keystate[SDLK_2])
+		add_light_key_pressed = false;
+
+	if(!delete_light_key_pressed && keystate[SDLK_3])
+	{
+		DeleteLight();
+		cout << "Deleted a light" << endl;
+		delete_light_key_pressed = true;
+	}
+	else if (!keystate[SDLK_3])
+		delete_light_key_pressed = false;
 		
 
 }
@@ -482,7 +514,7 @@ void Draw()
 		realSamples = 1;
 
 	// This is the loop that needs parallelisation
-	#pragma omp parallel for
+	#pragma omp parallel for schedule(auto)
 	for (int y = 0; y < SCREEN_HEIGHT; y++)
 	{
 		float x1, y1;
@@ -540,7 +572,7 @@ void CalculateDOF()
 
 	float totalPixels = DOF_KERNEL_SIZE * DOF_KERNEL_SIZE;
 
-	#pragma omp parallel for
+	#pragma omp parallel for schedule(auto)
 	for (int y = 1; y < SCREEN_HEIGHT - 1; y++)
 	{
 		for (int x = 1; x < SCREEN_WIDTH - 1; x++)
@@ -562,7 +594,6 @@ void CalculateDOF()
 						finalColour += pixelColours[(y+z)*SCREEN_HEIGHT+(x+z2)] * weighting;
 					}
 				}
-				//finalColour /= totalPixels;
 			}
 			else
 			{
