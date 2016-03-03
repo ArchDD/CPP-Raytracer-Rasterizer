@@ -7,7 +7,7 @@
 // Soft Shadows (2 key) - A light is split into N lights with 1 / N intensity and a random position jitter added to simulate soft shadows
 // Depth of Field (3 to toggle, 4-5 to change focal length) - Distance vectors relative to focal length stored for each pixel, 
 // used to set neighbour weightings in blur kernel
-// Multithreading (6 key) - Uses OpenMP to do calculations across multiple threads
+// Multithreading (6 to toggle, 7-8 to change number of threads) - Uses OpenMP to do calculations across multiple threads
 
 /* ----------------------------------------------------------------------------*/
 
@@ -30,8 +30,9 @@ vector<Triangle> triangles;
 /* RENDER SETTINGS                                                             */
 //#define REALTIME
 
-bool MULTITHREADING_ENABLED = false;
-int NUM_THREADS = 4; // Set to 0 to get max available
+bool MULTITHREADING_ENABLED = true;
+int NUM_THREADS; // Set by code
+int SAVED_THREADS; // Stores thread value when changed
 
 bool AA_ENABLED = false;
 int AA_SAMPLES = 3;
@@ -47,12 +48,12 @@ int NUM_LIGHTS = 0;
 Light lights[32];
 
 /* KEY STATES                                                                  */
-// These variables aren't ideal, it'd be better if we could find an SDL function that gives OnKeyDown events rather than
-// simply checking if the key is pressed
 bool AA_key_pressed = false;
 bool shadows_key_pressed = false;
 bool DOF_key_pressed = false;
 bool OMP_key_pressed = false;
+bool thread_add_key_pressed = false;
+bool thread_subtract_key_pressed = false;
 
 // Use smaller parameters when camera moving for realtime performance
 #ifdef REALTIME
@@ -111,10 +112,17 @@ int main( int argc, char* argv[] )
 	AddLight(vec3(0, -0.5f, -0.7f), vec3(1,1,1), 14 );
 
 	// Request as many threads as the system can provide
-	if(NUM_THREADS == 0) 
-		NUM_THREADS = omp_get_max_threads();
-
+	NUM_THREADS = omp_get_max_threads();
     omp_set_num_threads(NUM_THREADS);
+
+    // Set NUM_THREADS to how many the system can actually provide
+    #pragma omp parallel
+    {
+    	int ID = omp_get_thread_num();
+    	if(ID == 0)
+    		NUM_THREADS = omp_get_num_threads();
+    	    SAVED_THREADS = NUM_THREADS;
+    }
 
     if(MULTITHREADING_ENABLED)
     	cout << "Multithreading enabled with " << NUM_THREADS << " threads" << endl;
@@ -122,6 +130,8 @@ int main( int argc, char* argv[] )
 		cout << "Antialiasing enabled with samples: " << AA_SAMPLES << endl;
 	if(SOFT_SHADOWS_ENABLED)
 		cout << "Soft Shadows enabled with samples: " << SOFT_SHADOWS_SAMPLES << endl;
+	if(DOF_ENABLED)
+		cout << "DoF enabled with kernel size: " << DOF_KERNEL_SIZE << endl;
 
 	// Set start value for timer
 	t = SDL_GetTicks();
@@ -147,7 +157,7 @@ int main( int argc, char* argv[] )
 	{
 		Update();
 		Draw();
-		CalculateDOF();
+		
 		// Reset intersection distances
 		for(i = 0; i < SCREEN_WIDTH*SCREEN_HEIGHT; i++)
 		{
@@ -181,8 +191,8 @@ bool ClosestIntersection(vec3 start, vec3 dir, const vector<Triangle>& triangles
 {
 	bool intersection = false;
 	// check all triangles for intersections
-	size_t i;
-	for (i = 0; i < triangles.size(); i++)
+
+	for (size_t i = 0; i < triangles.size(); i++)
 	{
 		// the 3D real vectors that define the triangle
 		vec3 v0 = triangles[i].v0;
@@ -219,15 +229,16 @@ bool ClosestIntersection(vec3 start, vec3 dir, const vector<Triangle>& triangles
 			float distance = glm::distance(start, pos);
 			if (closestIntersection.distance >= distance)
 			{
-				closestIntersection.position = pos;
-				closestIntersection.distance = distance;
-				closestIntersection.triangleIndex = i;
-				if(!isLight) 
-					focalDistances[y*SCREEN_HEIGHT + x] = distance - FOCAL_LENGTH;
+					closestIntersection.position = pos;
+					closestIntersection.distance = distance;
+					closestIntersection.triangleIndex = i;
+					if(!isLight) 
+						focalDistances[y*SCREEN_HEIGHT + x] = distance - FOCAL_LENGTH;
 			}
 			intersection = true;
 		}
 	}
+
 
 	return intersection;
 }
@@ -425,31 +436,57 @@ void Update()
 	if(!OMP_key_pressed && keystate[SDLK_6])
 	{
 		MULTITHREADING_ENABLED = !MULTITHREADING_ENABLED;
+		if(!MULTITHREADING_ENABLED)
+			NUM_THREADS = 1;
+		else
+			NUM_THREADS = SAVED_THREADS;
+		omp_set_num_threads(NUM_THREADS);
 		cout << "Multithreading toggled to " << MULTITHREADING_ENABLED << endl;
 		OMP_key_pressed = true;
 	}
 	else if (!keystate[SDLK_6])
 		OMP_key_pressed = false;
+
+	if(!thread_add_key_pressed && keystate[SDLK_7])
+	{
+		NUM_THREADS++;
+		SAVED_THREADS = NUM_THREADS;
+		omp_set_num_threads(NUM_THREADS);
+		cout << "Threads increased to " << NUM_THREADS << endl;
+		thread_add_key_pressed = true;
+	}
+	else if (!keystate[SDLK_7])
+		thread_add_key_pressed = false;
+
+	if(!thread_subtract_key_pressed && keystate[SDLK_8])
+	{
+		NUM_THREADS--;
+		SAVED_THREADS = NUM_THREADS;
+		omp_set_num_threads(NUM_THREADS);
+		cout << "Threads decreased to " << NUM_THREADS << endl;
+		thread_subtract_key_pressed = true;
+	}
+	else if (!keystate[SDLK_8])
+		thread_subtract_key_pressed = false;
 		
 
 }
 
 void Draw()
 {
-
-	// trace a ray for every pixel
-	int x, y, z, z2;
 	int realSamples; // Number of AA samples to use. Set to 1 if AA is disabled
-	float x1, y1;
 
 	if(AA_ENABLED)
 		realSamples = AA_SAMPLES;
 	else
 		realSamples = 1;
 
-	for (y = 0; y < SCREEN_HEIGHT; y++)
+	// This is the loop that needs parallelisation
+	#pragma omp parallel for
+	for (int y = 0; y < SCREEN_HEIGHT; y++)
 	{
-		for (x = 0; x < SCREEN_WIDTH; x++)
+		float x1, y1;
+		for (int x = 0; x < SCREEN_WIDTH; x++)
 		{
 			vec3 avgColor(0.0f,0.0f,0.0f);
 			if(realSamples > 1) 
@@ -457,14 +494,14 @@ void Draw()
 			else
 				y1 = y;
 
-			for(z = 0; z < realSamples; z++)
+			for(int z = 0; z < realSamples; z++)
 			{
 				if(realSamples > 1) 
 					x1 = x - 0.5f;
 				else
 					x1 = x;
 
-				for(z2 = 0; z2 < realSamples; z2++)
+				for(int z2 = 0; z2 < realSamples; z2++)
 				{
 					// work out vectors from rotation
 					vec3 d(x1-(float)SCREEN_WIDTH/2.0f, y1 - (float)SCREEN_HEIGHT/2.0f, focalLength);
@@ -492,6 +529,8 @@ void Draw()
 
 		}
 	}
+
+	CalculateDOF();
 }
 
 void CalculateDOF()
@@ -501,6 +540,7 @@ void CalculateDOF()
 
 	float totalPixels = DOF_KERNEL_SIZE * DOF_KERNEL_SIZE;
 
+	#pragma omp parallel for
 	for (int y = 1; y < SCREEN_HEIGHT - 1; y++)
 	{
 		for (int x = 1; x < SCREEN_WIDTH - 1; x++)
