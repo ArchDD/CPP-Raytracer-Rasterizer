@@ -36,6 +36,7 @@ public:
 	int x;
 	int y;
 	float zinv;
+	glm::vec3 illumination;
 
 	Pixel(int x, int y) 
 		: x(x), y(y), zinv(0.0f){}
@@ -43,13 +44,16 @@ public:
 	Pixel(int x, int y, float zinv) 
 		: x(x), y(y), zinv(zinv){}
 
+	Pixel(int x, int y, float zinv, glm::vec3 illumination) 
+		: x(x), y(y), zinv(zinv), illumination(illumination){}
+
 	Pixel(){}
 
 };
 
 Pixel operator-(const Pixel &p1, const Pixel &p2)
 {
-    return Pixel(p1.x - p2.x, p1.y - p2.y, p1.zinv - p2.zinv);
+    return Pixel(p1.x - p2.x, p1.y - p2.y, p1.zinv - p2.zinv, p1.illumination - p2.illumination);
 }
 
 void PixelAbs(Pixel &p1)
@@ -57,6 +61,7 @@ void PixelAbs(Pixel &p1)
 	p1.x = abs(p1.x);
 	p1.y = abs(p1.y);
 	p1.zinv = abs(p1.zinv);
+	p1.illumination = glm::abs(p1.illumination);
 }
 
 struct fPixel
@@ -65,15 +70,20 @@ public:
 	float x;
 	float y;
 	float zinv;
+	glm::vec3 illumination;
 
 	fPixel(float x, float y, float zinv) 
 		: x(x), y(y), zinv(zinv){}
+
+	fPixel(float x, float y, float zinv, glm::vec3 illumination) 
+		: x(x), y(y), zinv(zinv), illumination(illumination){}
 
 	fPixel(Pixel &p1)
 	{
 		x = (float) p1.x;
 		y = (float) p1.y;
 		zinv = p1.zinv;
+		illumination = p1.illumination;
 	}
 
 	fPixel(){}
@@ -81,13 +91,29 @@ public:
 
 fPixel operator/(const fPixel &p1, const float div)
 {
-    return fPixel((float)p1.x / div, (float)p1.y / div, (float) p1.zinv / div);
+    return fPixel((float)p1.x / div, (float)p1.y / div, (float) p1.zinv / div, p1.illumination / div);
 }
 
 fPixel operator+=(const fPixel &p1, const fPixel &p2)
 {
     return fPixel(p1.x + p2.x, p1.y + p2.y, p1.zinv + p2.zinv);
 }
+
+struct Vertex
+{
+public:
+	glm::vec3 position;
+	glm::vec3 normal;
+	glm::vec2 reflectance;
+
+	Vertex(const Vertex &v0)
+	{
+		position = v0.position;
+		normal = v0.normal;
+		reflectance = v0.reflectance;
+	}
+	Vertex(){}
+};
 
 // Loads the Cornell Box. It is scaled to fill the volume:
 // -1 <= x <= +1

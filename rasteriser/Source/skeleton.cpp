@@ -27,6 +27,10 @@ vec3 currentColor;
 
 float depthBuffer[SCREEN_HEIGHT][SCREEN_WIDTH];
 
+vec3 lightPos(0,-0.5,-0.7);
+vec3 lightPower = 14.0f*vec3( 1, 1, 1 );
+vec3 indirectLightPowerPerArea = 0.2f*vec3( 1, 1, 1 );
+
 /* ----------------------------------------------------------------------------*/
 /* FUNCTIONS                                                                   */
 vector<Triangle> triangles;
@@ -40,7 +44,8 @@ void DrawLineSDL( SDL_Surface* surface, Pixel a, Pixel b, vec3 color );
 void DrawPolygonEdges( const vector<vec3>& vertices );
 void ComputePolygonRows( const vector<Pixel>& vertexPixels, vector<Pixel>& leftPixels, vector<Pixel>& rightPixels );
 void DrawRows( const vector<Pixel>& leftPixels, const vector<Pixel>& rightPixels );
-void DrawPolygon( const vector<vec3>& vertices );
+void DrawPolygon( const vector<Vertex>& vertices );
+void PixelShader( const Pixel& p );
 
 int main( int argc, char* argv[] )
 {
@@ -125,13 +130,21 @@ void Draw()
 	for( size_t i = 0; i < triangles.size(); ++i )
 	{
 		// Get the 3 vertices of the triangle
-		vector<vec3> vertices(3);
-		vertices[0] = triangles[i].v0;
-		vertices[1] = triangles[i].v1;
-		vertices[2] = triangles[i].v2;
+		vector<Vertex> vertices(3);
+		vertices[0].position = triangles[i].v0;
+		vertices[0].normal = triangles[i].normal;
+		vertices[0].reflectance = vec2(0.5f,0.5f);
+
+		vertices[1].position = triangles[i].v1;
+		vertices[1].normal = triangles[i].normal;
+		vertices[1].reflectance = vec2(0.5f,0.5f);
+
+		vertices[2].position = triangles[i].v2;
+		vertices[2].normal = triangles[i].normal;
+		vertices[2].reflectance = vec2(0.5f,0.5f);
+
 		currentColor = triangles[i].color;
-		
-		//DrawPolygonEdges( vertices );
+
 		DrawPolygon( vertices );
 	}
 
@@ -142,24 +155,58 @@ void Draw()
 }
 
 // Compute 2D screen position from 3D position
-void VertexShader( const vec3& v, Pixel& p )
+void VertexShader( const Vertex& v, Pixel& p )
 {
 	// We need to adjust the vertex positions based on the camera position and rotation
-	vec3 v2(v);
-	v2 = (v - cameraPos) * cameraRot;
+	Vertex v2(v);
+	v2.position = (v.position - cameraPos) * cameraRot;
 
 	// Calculate 2D screen position and place (0,0) at top left of the screen
-	p.zinv = 1.0f / v2.z;
-	p.x = int(focalLength * (v2.x * p.zinv)) + (SCREEN_WIDTH / 2.0f);
-	p.y = int(focalLength * (v2.y * p.zinv)) + (SCREEN_HEIGHT / 2.0f);
+	p.zinv = 1.0f / v2.position.z;
+	p.x = int(focalLength * (v2.position.x * p.zinv)) + (SCREEN_WIDTH / 2.0f);
+	p.y = int(focalLength * (v2.position.y * p.zinv)) + (SCREEN_HEIGHT / 2.0f);
 
+	float r = glm::distance(v.position, lightPos);
+	float A = 4*M_PI*(r*r);
+	
+	vec3 rDir = glm::normalize(v.position - lightPos);
+	vec3 nDir = v.normal;
+
+	vec3 D = (lightPower * max(glm::dot(rDir,nDir), 0.0f)) / A;
+
+	//vec3 R = v2.reflectance * (D + indirectLightPowerPerArea);
+
+	p.illumination = (D + indirectLightPowerPerArea) * currentColor;
+
+	//vec3 R = D + indirectLightPowerPerArea;
+
+	//cout << "p illum " << p.illumination.x + p.illumination.y + p.illumination.z << endl;
+
+}
+
+void PixelShader( const Pixel& p )
+{
+	int x = p.x;
+	int y = p.y;
+
+	//cout << p.illumination.z << endl;
+	PutPixelSDL( screen, x, y, p.illumination );
 }
 
 // Draws a line between two points
 void DrawLineSDL( SDL_Surface* surface, Pixel a, Pixel b, vec3 color )
 {
+
 	Pixel delta = a - b;
+	
+	//cout << "a illum is " << a.illumination.x + a.illumination.y + a.illumination.z << endl;
+	//cout << "b illum is " << b.illumination.x + b.illumination.y + b.illumination.z << endl;
+
+	//cout << "delta illum is " << delta.illumination.x + delta.illumination.y + delta.illumination.z << endl;
+
 	PixelAbs(delta);
+
+		//cout << "delta abs illum is " << delta.illumination.x + delta.illumination.y + delta.illumination.z << endl;
 	
 	int pixels = max( delta.x, delta.y ) + 1;
 
@@ -172,7 +219,7 @@ void DrawLineSDL( SDL_Surface* surface, Pixel a, Pixel b, vec3 color )
 		if(line[i].y < SCREEN_HEIGHT && line[i].y >= 0 && line[i].x < SCREEN_WIDTH && line[i].x >= 0 && line[i].zinv > depthBuffer[line[i].y][line[i].x])
 		{
 			depthBuffer[line[i].y][line[i].x] = line[i].zinv;
-			PutPixelSDL( surface, line[i].x, line[i].y, color );
+			PixelShader(line[i]);
 		}
 	}
 }
@@ -199,24 +246,37 @@ void Interpolate( Pixel a, Pixel b, vector<Pixel>& result )
 {
 	int N = result.size();
 	Pixel delta = Pixel(b-a);
+
+	//cout << "delta illum is " << delta.illumination.x + delta.illumination.y + delta.illumination.z << endl;
 	fPixel step(delta);
 
+	//cout << "step illum is " << step.illumination.x + step.illumination.y + step.illumination.z << endl;
+
+	//cout << " N is " << N << endl;
 	step = (step / float(max(N-1,1)));
 
+	//cout << "new step illum is " << step.illumination.x + step.illumination.y + step.illumination.z << endl;
+
 	fPixel current( a );
+	//cout << "a illum is " << a.illumination.x + a.illumination.y + a.illumination.z << endl;
+	//cout << "b illum is " << b.illumination.x + b.illumination.y + b.illumination.z << endl;
+		//cout << "current illum is " << current.illumination.x + current.illumination.y + current.illumination.z << endl;
 
 	for( int i=0; i<N; ++i )
 	{
 		result[i].x = current.x;
 		result[i].y = current.y;
 		result[i].zinv = current.zinv;
+		result[i].illumination = current.illumination;
 		current.x += step.x;
 		current.y += step.y;
 		current.zinv += step.zinv;
+		current.illumination += step.illumination;
+		//cout << " illum increased to " << current.illumination.x + current.illumination.y + current.illumination.z << endl;
 	}
 }
 
-// Draw every polygon edge
+/* Draw every polygon edge
 void DrawPolygonEdges( const vector<vec3>& vertices )
 {
 	int V = vertices.size();
@@ -233,7 +293,7 @@ void DrawPolygonEdges( const vector<vec3>& vertices )
 		vec3 color( 1, 1, 1 );
 		DrawLineSDL( screen, projectedVertices[i], projectedVertices[j], color );
 	}
-}
+}*/
 
 void ComputePolygonRows( const vector<Pixel>& vertexPixels, vector<Pixel>& leftPixels, vector<Pixel>& rightPixels )
 {
@@ -270,8 +330,8 @@ void ComputePolygonRows( const vector<Pixel>& vertexPixels, vector<Pixel>& leftP
 	{
 		int j = (i + 1) % 3; // Ensure all 3 edges are looped through
 		// Adjust vertex positions to have y value 0 at minY so Y coordinates map to array indicies
-		Pixel v1 (vertexPixels[i].x, vertexPixels[i].y - minY, vertexPixels[i].zinv);
-		Pixel v2 (vertexPixels[j].x, vertexPixels[j].y - minY, vertexPixels[j].zinv);
+		Pixel v1 (vertexPixels[i].x, vertexPixels[i].y - minY, vertexPixels[i].zinv, vertexPixels[i].illumination);
+		Pixel v2 (vertexPixels[j].x, vertexPixels[j].y - minY, vertexPixels[j].zinv, vertexPixels[i].illumination);
 
 		int edgePixels = abs(vertexPixels[i].y - vertexPixels[j].y) + 1; // Calculate number of rows this edge occupies
 		vector<Pixel> edgeResult(edgePixels); // Create array of ivec2 with number of rows
@@ -285,6 +345,8 @@ void ComputePolygonRows( const vector<Pixel>& vertexPixels, vector<Pixel>& leftP
 				leftPixels[edgeResult[k].y].x = edgeResult[k].x;
 				leftPixels[edgeResult[k].y].y = edgeResult[k].y + minY;
 				leftPixels[edgeResult[k].y].zinv = edgeResult[k].zinv;
+				leftPixels[edgeResult[k].y].illumination = edgeResult[k].illumination;
+				//cout << "left illum is " << leftPixels[edgeResult[k].y].illumination.x + leftPixels[edgeResult[k].y].illumination.y + leftPixels[edgeResult[k].y].illumination.z << endl;
 			}
 
 			if(edgeResult[k].x > rightPixels[edgeResult[k].y].x)
@@ -292,6 +354,8 @@ void ComputePolygonRows( const vector<Pixel>& vertexPixels, vector<Pixel>& leftP
 				rightPixels[edgeResult[k].y].x = edgeResult[k].x;
 				rightPixels[edgeResult[k].y].y = edgeResult[k].y + minY;
 				rightPixels[edgeResult[k].y].zinv = edgeResult[k].zinv;
+				rightPixels[edgeResult[k].y].illumination = edgeResult[k].illumination;
+				//cout << "right illum is " << leftPixels[edgeResult[k].y].illumination.x + leftPixels[edgeResult[k].y].illumination.y + leftPixels[edgeResult[k].y].illumination.z << endl;
 			}
 		}
 	}
@@ -305,7 +369,7 @@ void DrawRows( const vector<Pixel>& leftPixels, const vector<Pixel>& rightPixels
 	}
 }
 
-void DrawPolygon( const vector<vec3>& vertices )
+void DrawPolygon( const vector<Vertex>& vertices )
 {
 	int V = vertices.size();
 	vector<Pixel> vertexPixels( V );
