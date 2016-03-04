@@ -30,6 +30,65 @@ public:
 	}
 };
 
+struct Pixel
+{
+public:
+	int x;
+	int y;
+	float zinv;
+
+	Pixel(int x, int y) 
+		: x(x), y(y), zinv(0.0f){}
+
+	Pixel(int x, int y, float zinv) 
+		: x(x), y(y), zinv(zinv){}
+
+	Pixel(){}
+
+};
+
+Pixel operator-(const Pixel &p1, const Pixel &p2)
+{
+    return Pixel(p1.x - p2.x, p1.y - p2.y, p1.zinv - p2.zinv);
+}
+
+void PixelAbs(Pixel &p1)
+{
+	p1.x = abs(p1.x);
+	p1.y = abs(p1.y);
+	p1.zinv = abs(p1.zinv);
+}
+
+struct fPixel
+{
+public:
+	float x;
+	float y;
+	float zinv;
+
+	fPixel(float x, float y, float zinv) 
+		: x(x), y(y), zinv(zinv){}
+
+	fPixel(Pixel &p1)
+	{
+		x = (float) p1.x;
+		y = (float) p1.y;
+		zinv = p1.zinv;
+	}
+
+	fPixel(){}
+};
+
+fPixel operator/(const fPixel &p1, const float div)
+{
+    return fPixel((float)p1.x / div, (float)p1.y / div, (float) p1.zinv / div);
+}
+
+fPixel operator+=(const fPixel &p1, const fPixel &p2)
+{
+    return fPixel(p1.x + p2.x, p1.y + p2.y, p1.zinv + p2.zinv);
+}
+
 // Loads the Cornell Box. It is scaled to fill the volume:
 // -1 <= x <= +1
 // -1 <= y <= +1
