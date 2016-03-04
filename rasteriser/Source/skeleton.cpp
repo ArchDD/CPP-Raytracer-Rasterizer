@@ -149,9 +149,10 @@ void VertexShader( const vec3& v, Pixel& p )
 	v2 = (v - cameraPos) * cameraRot;
 
 	// Calculate 2D screen position and place (0,0) at top left of the screen
-	p.x = (focalLength * (v2.x / v2.z)) + (SCREEN_WIDTH / 2.0f);
-	p.y = (focalLength * (v2.y / v2.z)) + (SCREEN_HEIGHT / 2.0f);
 	p.zinv = 1.0f / v2.z;
+	p.x = int(focalLength * (v2.x * p.zinv)) + (SCREEN_WIDTH / 2.0f);
+	p.y = int(focalLength * (v2.y * p.zinv)) + (SCREEN_HEIGHT / 2.0f);
+
 }
 
 // Draws a line between two points
@@ -300,7 +301,6 @@ void DrawRows( const vector<Pixel>& leftPixels, const vector<Pixel>& rightPixels
 {
 	for(int i = 0; i < leftPixels.size(); i++)
 	{
-		cout << "Drawing line" << endl;
 		DrawLineSDL(screen, leftPixels[i],rightPixels[i],currentColor);
 	}
 }
@@ -316,13 +316,7 @@ void DrawPolygon( const vector<vec3>& vertices )
 	vector<Pixel> leftPixels;
 	vector<Pixel> rightPixels;
 
-	cout << "Vert shader done" << endl;
-
 	ComputePolygonRows( vertexPixels, leftPixels, rightPixels );
 
-	cout << "Compute poly rows done " << endl;
-
 	DrawRows( leftPixels, rightPixels );
-
-	cout << "Draw rows done" << endl;
 }
