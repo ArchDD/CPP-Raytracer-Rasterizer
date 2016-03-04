@@ -25,7 +25,7 @@ float yaw = 0; // Yaw angle controlling camera rotation around y-axis
 
 vec3 currentColor;
 
-float depthBuffer[SCREEN_HEIGHT+1][SCREEN_WIDTH+1];
+float depthBuffer[SCREEN_HEIGHT][SCREEN_WIDTH];
 
 /* ----------------------------------------------------------------------------*/
 /* FUNCTIONS                                                                   */
@@ -162,27 +162,17 @@ void DrawLineSDL( SDL_Surface* surface, Pixel a, Pixel b, vec3 color )
 	
 	int pixels = max( delta.x, delta.y ) + 1;
 
-
-
 	vector<Pixel> line( pixels );
 
 	Interpolate( a, b, line );
 
 	for(int i = 0; i < pixels; ++i)
 	{
-		//cout << line[i].zinv << endl;
-		//cout << "Attempting to access " << line[i].y << "," << line[i].x << endl;
-		//cout << "Depth value " << depthBuffer[line[i].y][line[i].x] << endl;
-		if(line[i].zinv > depthBuffer[line[i].y][line[i].x])
+		if(line[i].y < SCREEN_HEIGHT && line[i].y >= 0 && line[i].x < SCREEN_WIDTH && line[i].x >= 0 && line[i].zinv > depthBuffer[line[i].y][line[i].x])
 		{
-			//cout << "y is " << line[i].y << endl;
-			//cout << "x is " << line[i].x << endl;
-			//cout << "z is " << line[i].zinv << endl;
-
 			depthBuffer[line[i].y][line[i].x] = line[i].zinv;
 			PutPixelSDL( surface, line[i].x, line[i].y, color );
 		}
-		
 	}
 }
 
@@ -310,6 +300,7 @@ void DrawRows( const vector<Pixel>& leftPixels, const vector<Pixel>& rightPixels
 {
 	for(int i = 0; i < leftPixels.size(); i++)
 	{
+		cout << "Drawing line" << endl;
 		DrawLineSDL(screen, leftPixels[i],rightPixels[i],currentColor);
 	}
 }
@@ -325,6 +316,13 @@ void DrawPolygon( const vector<vec3>& vertices )
 	vector<Pixel> leftPixels;
 	vector<Pixel> rightPixels;
 
+	cout << "Vert shader done" << endl;
+
 	ComputePolygonRows( vertexPixels, leftPixels, rightPixels );
+
+	cout << "Compute poly rows done " << endl;
+
 	DrawRows( leftPixels, rightPixels );
+
+	cout << "Draw rows done" << endl;
 }
