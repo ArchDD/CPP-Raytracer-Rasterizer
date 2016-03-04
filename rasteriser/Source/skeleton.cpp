@@ -49,6 +49,7 @@ int main( int argc, char* argv[] )
 		Update();
 		Draw();
 
+		// Clear the screen before drawing the next frame
 		for( int y=0; y<SCREEN_HEIGHT; ++y )
 		{
 			for( int x=0; x<SCREEN_WIDTH; ++x )
@@ -114,6 +115,7 @@ void Draw()
 
 	for( size_t i = 0; i < triangles.size(); ++i )
 	{
+		// Get the 3 vertices of the triangle
 		vector<vec3> vertices(3);
 		vertices[0] = triangles[i].v0;
 		vertices[1] = triangles[i].v1;
@@ -128,16 +130,19 @@ void Draw()
 	SDL_UpdateRect( screen, 0, 0, 0, 0 );
 }
 
+// Compute 2D screen position from 3D position
 void VertexShader( const vec3& v, ivec2& p )
 {
-	// We need to adjust the vertex positions based on the camera position
+	// We need to adjust the vertex positions based on the camera position and rotation
 	vec3 v2(v);
 	v2 = (v - cameraPos) * cameraRot;
 
+	// Calculate 2D screen position and place (0,0) at top left of the screen
 	p.x = (focalLength * (v2.x / v2.z)) + (SCREEN_WIDTH / 2.0f);
 	p.y = (focalLength * (v2.y / v2.z)) + (SCREEN_HEIGHT / 2.0f);
 }
 
+// Draws a line between two points
 void DrawLineSDL( SDL_Surface* surface, ivec2 a, ivec2 b, vec3 color )
 {
 	ivec2 delta = glm::abs( a - b );
@@ -153,6 +158,7 @@ void DrawLineSDL( SDL_Surface* surface, ivec2 a, ivec2 b, vec3 color )
 	}
 }
 
+// Interpolates between two 2D vectors
 void Interpolate( ivec2 a, ivec2 b, vector<ivec2>& result )
 {
 	int N = result.size();
@@ -165,6 +171,7 @@ void Interpolate( ivec2 a, ivec2 b, vector<ivec2>& result )
 	}
 }
 
+// Draw every polygon edge
 void DrawPolygonEdges( const vector<vec3>& vertices )
 {
 	int V = vertices.size();
