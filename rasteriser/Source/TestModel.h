@@ -37,6 +37,7 @@ public:
 	int y;
 	float zinv;
 	glm::vec3 illumination;
+	glm::vec3 pos3d;
 
 	Pixel(int x, int y) 
 		: x(x), y(y), zinv(0.0f){}

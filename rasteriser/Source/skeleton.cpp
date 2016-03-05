@@ -24,12 +24,18 @@ mat3 cameraRot = mat3(0.0f);
 float yaw = 0; // Yaw angle controlling camera rotation around y-axis
 
 vec3 currentColor;
+vec3 currentNormal;
+vec3 currentReflectance;
 
 float depthBuffer[SCREEN_HEIGHT][SCREEN_WIDTH];
 
 vec3 lightPos(0,-0.5,-0.7);
 vec3 lightPower = 14.0f*vec3( 1, 1, 1 );
-vec3 indirectLightPowerPerArea = 0.2f*vec3( 1, 1, 1 );
+vec3 indirectLightPowerPerArea = 0.5f*vec3( 1, 1, 1 );
+
+int polyIndex = 0;
+bool polyUpKeyPressed = false;
+bool polyDownKeyPressed = false;
 
 /* ----------------------------------------------------------------------------*/
 /* FUNCTIONS                                                                   */
@@ -113,6 +119,66 @@ void Update()
 		yaw -= 0.1f;
 	}
 
+	if( keystate[SDLK_z] )
+	{
+		// Move camera forward
+		lightPos += 0.1f*forward;
+	}
+
+	if( keystate[SDLK_x] )
+	{
+		// Move camera forward
+		lightPos -= 0.1f*forward;
+	}
+
+	if( keystate[SDLK_c] )
+	{
+		// Move camera forward
+		lightPos.x -= 0.1f;
+	}
+
+	if( keystate[SDLK_v] )
+	{
+		// Move camera forward
+		lightPos.x += 0.1f;
+	}
+
+		if( keystate[SDLK_b] )
+	{
+		// Move camera forward
+		lightPos.y -= 0.1f;
+	}
+
+		if( keystate[SDLK_n] )
+	{
+		// Move camera forward
+		lightPos.y += 0.1f;
+	}
+
+	if( keystate[SDLK_q] && !polyDownKeyPressed)
+	{
+		// Move camera forward
+		polyIndex--;
+		polyDownKeyPressed = true;
+		cout << "Drawing polygon " << polyIndex << endl;
+	}
+	else if( !keystate[SDLK_q] && polyDownKeyPressed)
+	{
+		polyDownKeyPressed = false;
+	}
+
+	if( keystate[SDLK_w] && !polyUpKeyPressed)
+	{
+		// Move camera forward
+		polyIndex++;
+		polyUpKeyPressed = true;
+		cout << "Drawing polygon " << polyIndex << endl;
+	}
+	else if( !keystate[SDLK_w] && polyUpKeyPressed)
+	{
+		polyUpKeyPressed = false;
+	}
+
 	// Update camera rotation matrix
 	float c = cos(yaw);
 	float s = sin(yaw);
@@ -169,7 +235,7 @@ void VertexShader( const Vertex& v, Pixel& p )
 	float r = glm::distance(v.position, lightPos);
 	float A = 4*M_PI*(r*r);
 	
-	vec3 rDir = glm::normalize(v.position - lightPos);
+	vec3 rDir = glm::normalize(lightPos - v.position);
 	vec3 nDir = v.normal;
 
 	vec3 D = (lightPower * max(glm::dot(rDir,nDir), 0.0f)) / A;
@@ -245,7 +311,7 @@ void Interpolate( ivec2 a, ivec2 b, vector<ivec2>& result )
 void Interpolate( Pixel a, Pixel b, vector<Pixel>& result )
 {
 	int N = result.size();
-	Pixel delta = Pixel(b-a);
+	Pixel delta = b-a;
 
 	//cout << "delta illum is " << delta.illumination.x + delta.illumination.y + delta.illumination.z << endl;
 	fPixel step(delta);
@@ -331,7 +397,7 @@ void ComputePolygonRows( const vector<Pixel>& vertexPixels, vector<Pixel>& leftP
 		int j = (i + 1) % 3; // Ensure all 3 edges are looped through
 		// Adjust vertex positions to have y value 0 at minY so Y coordinates map to array indicies
 		Pixel v1 (vertexPixels[i].x, vertexPixels[i].y - minY, vertexPixels[i].zinv, vertexPixels[i].illumination);
-		Pixel v2 (vertexPixels[j].x, vertexPixels[j].y - minY, vertexPixels[j].zinv, vertexPixels[i].illumination);
+		Pixel v2 (vertexPixels[j].x, vertexPixels[j].y - minY, vertexPixels[j].zinv, vertexPixels[j].illumination);
 
 		int edgePixels = abs(vertexPixels[i].y - vertexPixels[j].y) + 1; // Calculate number of rows this edge occupies
 		vector<Pixel> edgeResult(edgePixels); // Create array of ivec2 with number of rows
