@@ -33,10 +33,6 @@ vec3 lightPos(0,-0.5,-0.7);
 vec3 lightPower = 14.0f*vec3( 1, 1, 1 );
 vec3 indirectLightPowerPerArea = 0.5f*vec3( 1, 1, 1 );
 
-int polyIndex = 0;
-bool polyUpKeyPressed = false;
-bool polyDownKeyPressed = false;
-
 /* ----------------------------------------------------------------------------*/
 /* FUNCTIONS                                                                   */
 vector<Triangle> triangles;
@@ -169,6 +165,7 @@ void Draw()
 		vertices[2].normal = triangles[i].normal;
 		vertices[2].reflectance = vec3(1.0f,1.0f,1.0f);
 
+		// Update global variables for the pixel shader
 		currentColor = triangles[i].color;
 		currentNormal = triangles[i].normal;
 		currentReflectance = vec3(1.0f,1.0f,1.0f);
@@ -194,6 +191,7 @@ void VertexShader( const Vertex& v, Pixel& p )
 	p.x = int(focalLength * (v2.position.x * p.zinv)) + (SCREEN_WIDTH / 2.0f);
 	p.y = int(focalLength * (v2.position.y * p.zinv)) + (SCREEN_HEIGHT / 2.0f);
 
+	// Calculate lighting
 	float r = glm::distance(v.position, lightPos);
 	float A = 4*M_PI*(r*r);
 	
@@ -202,16 +200,11 @@ void VertexShader( const Vertex& v, Pixel& p )
 
 	vec3 D = (lightPower * max(glm::dot(rDir,nDir), 0.0f)) / A;
 
-	//vec3 R = v2.reflectance * (D + indirectLightPowerPerArea);
-
 	p.illumination = v2.reflectance * (D + indirectLightPowerPerArea) * currentColor;
-
-	//vec3 R = D + indirectLightPowerPerArea;
-
-	//cout << "p illum " << p.illumination.x + p.illumination.y + p.illumination.z << endl;
 
 }
 
+// Calculate per pixel lighting
 void PixelShader( const Pixel& p )
 {
 	int x = p.x;
@@ -226,15 +219,8 @@ void DrawLineSDL( SDL_Surface* surface, Pixel a, Pixel b, vec3 color )
 {
 
 	Pixel delta = a - b;
-	
-	//cout << "a illum is " << a.illumination.x + a.illumination.y + a.illumination.z << endl;
-	//cout << "b illum is " << b.illumination.x + b.illumination.y + b.illumination.z << endl;
-
-	//cout << "delta illum is " << delta.illumination.x + delta.illumination.y + delta.illumination.z << endl;
 
 	PixelAbs(delta);
-
-		//cout << "delta abs illum is " << delta.illumination.x + delta.illumination.y + delta.illumination.z << endl;
 	
 	int pixels = max( delta.x, delta.y ) + 1;
 
@@ -244,6 +230,7 @@ void DrawLineSDL( SDL_Surface* surface, Pixel a, Pixel b, vec3 color )
 
 	for(int i = 0; i < pixels; ++i)
 	{
+		// Ensure pixel is on the screen and is closer to the camera than the current value in the depth buffer
 		if(line[i].y < SCREEN_HEIGHT && line[i].y >= 0 && line[i].x < SCREEN_WIDTH && line[i].x >= 0 && line[i].zinv > depthBuffer[line[i].y][line[i].x])
 		{
 			depthBuffer[line[i].y][line[i].x] = line[i].zinv;
@@ -269,26 +256,17 @@ void Interpolate( ivec2 a, ivec2 b, vector<ivec2>& result )
 	}
 }
 
-// Interpolates between two 2D vectors
+// Interpolates between two Pixels
 void Interpolate( Pixel a, Pixel b, vector<Pixel>& result )
 {
 	int N = result.size();
 	Pixel delta = b-a;
 
-	//cout << "delta illum is " << delta.illumination.x + delta.illumination.y + delta.illumination.z << endl;
 	fPixel step(delta);
 
-	//cout << "step illum is " << step.illumination.x + step.illumination.y + step.illumination.z << endl;
-
-	//cout << " N is " << N << endl;
 	step = (step / float(max(N-1,1)));
 
-	//cout << "new step illum is " << step.illumination.x + step.illumination.y + step.illumination.z << endl;
-
 	fPixel current( a );
-	//cout << "a illum is " << a.illumination.x + a.illumination.y + a.illumination.z << endl;
-	//cout << "b illum is " << b.illumination.x + b.illumination.y + b.illumination.z << endl;
-		//cout << "current illum is " << current.illumination.x + current.illumination.y + current.illumination.z << endl;
 
 	for( int i=0; i<N; ++i )
 	{
@@ -300,28 +278,8 @@ void Interpolate( Pixel a, Pixel b, vector<Pixel>& result )
 		current.y += step.y;
 		current.zinv += step.zinv;
 		current.illumination += step.illumination;
-		//cout << " illum increased to " << current.illumination.x + current.illumination.y + current.illumination.z << endl;
 	}
 }
-
-/* Draw every polygon edge
-void DrawPolygonEdges( const vector<vec3>& vertices )
-{
-	int V = vertices.size();
-	// Transform each vertex from 3D world position to 2D image position:
-	vector<Pixel> projectedVertices( V );
-	for( int i=0; i<V; ++i )
-	{
-		VertexShader( vertices[i], projectedVertices[i] );
-	}
-	// Loop over all vertices and draw the edge from it to the next vertex:
-	for( int i=0; i<V; ++i )
-	{
-		int j = (i+1)%V; // The next vertex
-		vec3 color( 1, 1, 1 );
-		DrawLineSDL( screen, projectedVertices[i], projectedVertices[j], color );
-	}
-}*/
 
 void ComputePolygonRows( const vector<Pixel>& vertexPixels, vector<Pixel>& leftPixels, vector<Pixel>& rightPixels )
 {
@@ -374,7 +332,6 @@ void ComputePolygonRows( const vector<Pixel>& vertexPixels, vector<Pixel>& leftP
 				leftPixels[edgeResult[k].y].y = edgeResult[k].y + minY;
 				leftPixels[edgeResult[k].y].zinv = edgeResult[k].zinv;
 				leftPixels[edgeResult[k].y].illumination = edgeResult[k].illumination;
-				//cout << "left illum is " << leftPixels[edgeResult[k].y].illumination.x + leftPixels[edgeResult[k].y].illumination.y + leftPixels[edgeResult[k].y].illumination.z << endl;
 			}
 
 			if(edgeResult[k].x > rightPixels[edgeResult[k].y].x)
@@ -383,12 +340,12 @@ void ComputePolygonRows( const vector<Pixel>& vertexPixels, vector<Pixel>& leftP
 				rightPixels[edgeResult[k].y].y = edgeResult[k].y + minY;
 				rightPixels[edgeResult[k].y].zinv = edgeResult[k].zinv;
 				rightPixels[edgeResult[k].y].illumination = edgeResult[k].illumination;
-				//cout << "right illum is " << leftPixels[edgeResult[k].y].illumination.x + leftPixels[edgeResult[k].y].illumination.y + leftPixels[edgeResult[k].y].illumination.z << endl;
 			}
 		}
 	}
 }
 
+// Draw a line for each row of the triangle
 void DrawRows( const vector<Pixel>& leftPixels, const vector<Pixel>& rightPixels )
 {
 	for(int i = 0; i < leftPixels.size(); i++)
@@ -409,6 +366,5 @@ void DrawPolygon( const vector<Vertex>& vertices )
 	vector<Pixel> rightPixels;
 
 	ComputePolygonRows( vertexPixels, leftPixels, rightPixels );
-
 	DrawRows( leftPixels, rightPixels );
 }
