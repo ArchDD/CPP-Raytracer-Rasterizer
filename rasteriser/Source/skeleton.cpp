@@ -29,7 +29,7 @@ vec3 currentReflectance;
 
 float depthBuffer[SCREEN_HEIGHT][SCREEN_WIDTH];
 
-vec3 lightPos(0,-0.5,-0.7);
+vec3 lightPos(0,-0.5,0.5f);
 vec3 lightPower = 14.0f*vec3( 1, 1, 1 );
 vec3 indirectLightPowerPerArea = 0.5f*vec3( 1, 1, 1 );
 
@@ -118,20 +118,20 @@ void Update()
 	// Light movement controls
 	if (keystate[SDLK_w])
 	{
-		lightPos += 0.1f*forward;
+		lightPos.z += 0.1f;
 	}
 	else if (keystate[SDLK_s])
 	{
-		lightPos -= 0.1f*forward;
+		lightPos.z -= 0.1f;
 	}
 
 	if (keystate[SDLK_a])
 	{
-		lightPos -= 0.1f*right;
+		lightPos.x -= 0.1f;
 	}
 	else if (keystate[SDLK_d])
 	{
-		lightPos += 0.1f*right;
+		lightPos.x += 0.1f;
 	}
 
 	// Update camera rotation matrix
@@ -152,18 +152,9 @@ void Draw()
 	{
 		// Get the 3 vertices of the triangle
 		vector<Vertex> vertices(3);
-		vec3 reflectance(0.5f,0.5f,0.5f);
 		vertices[0].position = triangles[i].v0;
-		vertices[0].normal = triangles[i].normal;
-		vertices[0].reflectance = vec3(1.0f,1.0f,1.0f);
-
 		vertices[1].position = triangles[i].v1;
-		vertices[1].normal = triangles[i].normal;
-		vertices[1].reflectance = vec3(1.0f,1.0f,1.0f);
-
 		vertices[2].position = triangles[i].v2;
-		vertices[2].normal = triangles[i].normal;
-		vertices[2].reflectance = vec3(1.0f,1.0f,1.0f);
 
 		// Update global variables for the pixel shader
 		currentColor = triangles[i].color;
@@ -186,12 +177,18 @@ void VertexShader( const Vertex& v, Pixel& p )
 	Vertex v2(v);
 	v2.position = (v.position - cameraPos) * cameraRot;
 
-	// Calculate 2D screen position and place (0,0) at top left of the screen
+	// Store the 3D position of the vertex in the pixel. Divide by the Z value so the value interpolates correctly over the perspective
+	p.pos3d = v2.position / v2.position.z;
+
+	// Calculate depth of pixel, inversed so the value interpolates correctly over the perspective
 	p.zinv = 1.0f / v2.position.z;
+
+	// Calculate 2D screen position and place (0,0) at top left of the screen
 	p.x = int(focalLength * (v2.position.x * p.zinv)) + (SCREEN_WIDTH / 2.0f);
 	p.y = int(focalLength * (v2.position.y * p.zinv)) + (SCREEN_HEIGHT / 2.0f);
 
-	// Calculate lighting
+	// Calculate vertex lighting. Legacy code.
+	/*
 	float r = glm::distance(v.position, lightPos);
 	float A = 4*M_PI*(r*r);
 	
@@ -201,6 +198,7 @@ void VertexShader( const Vertex& v, Pixel& p )
 	vec3 D = (lightPower * max(glm::dot(rDir,nDir), 0.0f)) / A;
 
 	p.illumination = v2.reflectance * (D + indirectLightPowerPerArea) * currentColor;
+	*/
 
 }
 
@@ -210,16 +208,28 @@ void PixelShader( const Pixel& p )
 	int x = p.x;
 	int y = p.y;
 
-	//cout << p.illumination.z << endl;
-	PutPixelSDL( screen, x, y, p.illumination );
+	// Multiply pixel 3d position by the z value to get the origin position from the inverse
+	vec3 pPos3d(p.pos3d);
+	pPos3d *= p.pos3d.z;
+
+	// Calculate lighting
+	float r = glm::distance(pPos3d, lightPos);
+	float A = 4*M_PI*(r*r);
+	
+	vec3 rDir = glm::normalize(lightPos - pPos3d);
+	vec3 nDir = currentNormal;
+
+	vec3 D = (lightPower * max(glm::dot(rDir,nDir), 0.0f)) / A;
+
+	vec3 pixelColor = currentReflectance * (D + indirectLightPowerPerArea) * currentColor;
+
+	PutPixelSDL( screen, x, y, pixelColor );
 }
 
 // Draws a line between two points
 void DrawLineSDL( SDL_Surface* surface, Pixel a, Pixel b, vec3 color )
 {
-
 	Pixel delta = a - b;
-
 	PixelAbs(delta);
 	
 	int pixels = max( delta.x, delta.y ) + 1;
@@ -273,11 +283,11 @@ void Interpolate( Pixel a, Pixel b, vector<Pixel>& result )
 		result[i].x = current.x;
 		result[i].y = current.y;
 		result[i].zinv = current.zinv;
-		result[i].illumination = current.illumination;
+		result[i].pos3d = current.pos3d;
 		current.x += step.x;
 		current.y += step.y;
 		current.zinv += step.zinv;
-		current.illumination += step.illumination;
+		current.pos3d += step.pos3d;
 	}
 }
 
@@ -316,8 +326,8 @@ void ComputePolygonRows( const vector<Pixel>& vertexPixels, vector<Pixel>& leftP
 	{
 		int j = (i + 1) % 3; // Ensure all 3 edges are looped through
 		// Adjust vertex positions to have y value 0 at minY so Y coordinates map to array indicies
-		Pixel v1 (vertexPixels[i].x, vertexPixels[i].y - minY, vertexPixels[i].zinv, vertexPixels[i].illumination);
-		Pixel v2 (vertexPixels[j].x, vertexPixels[j].y - minY, vertexPixels[j].zinv, vertexPixels[j].illumination);
+		Pixel v1 (vertexPixels[i].x, vertexPixels[i].y - minY, vertexPixels[i].zinv, vertexPixels[i].pos3d);
+		Pixel v2 (vertexPixels[j].x, vertexPixels[j].y - minY, vertexPixels[j].zinv, vertexPixels[j].pos3d);
 
 		int edgePixels = abs(vertexPixels[i].y - vertexPixels[j].y) + 1; // Calculate number of rows this edge occupies
 		vector<Pixel> edgeResult(edgePixels); // Create array of ivec2 with number of rows
@@ -325,13 +335,12 @@ void ComputePolygonRows( const vector<Pixel>& vertexPixels, vector<Pixel>& leftP
 
 		for(int k = 0; k < edgePixels; k++)
 		{
-
 			if(edgeResult[k].x < leftPixels[edgeResult[k].y].x)
 			{
 				leftPixels[edgeResult[k].y].x = edgeResult[k].x;
 				leftPixels[edgeResult[k].y].y = edgeResult[k].y + minY;
 				leftPixels[edgeResult[k].y].zinv = edgeResult[k].zinv;
-				leftPixels[edgeResult[k].y].illumination = edgeResult[k].illumination;
+				leftPixels[edgeResult[k].y].pos3d = edgeResult[k].pos3d;
 			}
 
 			if(edgeResult[k].x > rightPixels[edgeResult[k].y].x)
@@ -339,7 +348,7 @@ void ComputePolygonRows( const vector<Pixel>& vertexPixels, vector<Pixel>& leftP
 				rightPixels[edgeResult[k].y].x = edgeResult[k].x;
 				rightPixels[edgeResult[k].y].y = edgeResult[k].y + minY;
 				rightPixels[edgeResult[k].y].zinv = edgeResult[k].zinv;
-				rightPixels[edgeResult[k].y].illumination = edgeResult[k].illumination;
+				rightPixels[edgeResult[k].y].pos3d = edgeResult[k].pos3d;
 			}
 		}
 	}

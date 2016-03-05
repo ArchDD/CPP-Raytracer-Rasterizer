@@ -36,7 +36,6 @@ public:
 	int x;
 	int y;
 	float zinv;
-	glm::vec3 illumination;
 	glm::vec3 pos3d;
 
 	Pixel(int x, int y) 
@@ -45,56 +44,62 @@ public:
 	Pixel(int x, int y, float zinv) 
 		: x(x), y(y), zinv(zinv){}
 
-	Pixel(int x, int y, float zinv, glm::vec3 illumination) 
-		: x(x), y(y), zinv(zinv), illumination(illumination){}
+	Pixel(int x, int y, float zinv, glm::vec3 pos3d) 
+		: x(x), y(y), zinv(zinv), pos3d(pos3d){}
 
 	Pixel(){}
 
 };
 
+// Allows subtraction of the Pixel class
 Pixel operator-(const Pixel &p1, const Pixel &p2)
 {
-    return Pixel(p1.x - p2.x, p1.y - p2.y, p1.zinv - p2.zinv, p1.illumination - p2.illumination);
+    return Pixel(p1.x - p2.x, p1.y - p2.y, p1.zinv - p2.zinv, p1.pos3d - p2.pos3d);
 }
 
+// Returns abs(Pixel)
 void PixelAbs(Pixel &p1)
 {
 	p1.x = abs(p1.x);
 	p1.y = abs(p1.y);
 	p1.zinv = abs(p1.zinv);
-	p1.illumination = glm::abs(p1.illumination);
+	p1.pos3d = glm::abs(p1.pos3d);
 }
 
+// A variation of the Pixel class that stores x and y as floats. Was necessary in interpolation step,
+// may be replaced with a more elegant solution?
 struct fPixel
 {
 public:
 	float x;
 	float y;
 	float zinv;
-	glm::vec3 illumination;
+	glm::vec3 pos3d;
 
 	fPixel(float x, float y, float zinv) 
 		: x(x), y(y), zinv(zinv){}
 
-	fPixel(float x, float y, float zinv, glm::vec3 illumination) 
-		: x(x), y(y), zinv(zinv), illumination(illumination){}
+	fPixel(float x, float y, float zinv, glm::vec3 pos3d) 
+		: x(x), y(y), zinv(zinv), pos3d(pos3d){}
 
 	fPixel(Pixel &p1)
 	{
 		x = (float) p1.x;
 		y = (float) p1.y;
 		zinv = p1.zinv;
-		illumination = p1.illumination;
+		pos3d = p1.pos3d;
 	}
 
 	fPixel(){}
 };
 
+// Division of Pixel class by a float
 fPixel operator/(const fPixel &p1, const float div)
 {
-    return fPixel((float)p1.x / div, (float)p1.y / div, (float) p1.zinv / div, p1.illumination / div);
+    return fPixel((float)p1.x / div, (float)p1.y / div, (float) p1.zinv / div, p1.pos3d / div);
 }
 
+// Addition of two pixel classes
 fPixel operator+=(const fPixel &p1, const fPixel &p2)
 {
     return fPixel(p1.x + p2.x, p1.y + p2.y, p1.zinv + p2.zinv);
@@ -104,14 +109,10 @@ struct Vertex
 {
 public:
 	glm::vec3 position;
-	glm::vec3 normal;
-	glm::vec3 reflectance;
 
 	Vertex(const Vertex &v0)
 	{
 		position = v0.position;
-		normal = v0.normal;
-		reflectance = v0.reflectance;
 	}
 	Vertex(){}
 };
