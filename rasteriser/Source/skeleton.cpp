@@ -119,64 +119,23 @@ void Update()
 		yaw -= 0.1f;
 	}
 
-	if( keystate[SDLK_z] )
+	// Light movement controls
+	if (keystate[SDLK_w])
 	{
-		// Move camera forward
 		lightPos += 0.1f*forward;
 	}
-
-	if( keystate[SDLK_x] )
+	else if (keystate[SDLK_s])
 	{
-		// Move camera forward
 		lightPos -= 0.1f*forward;
 	}
 
-	if( keystate[SDLK_c] )
+	if (keystate[SDLK_a])
 	{
-		// Move camera forward
-		lightPos.x -= 0.1f;
+		lightPos -= 0.1f*right;
 	}
-
-	if( keystate[SDLK_v] )
+	else if (keystate[SDLK_d])
 	{
-		// Move camera forward
-		lightPos.x += 0.1f;
-	}
-
-		if( keystate[SDLK_b] )
-	{
-		// Move camera forward
-		lightPos.y -= 0.1f;
-	}
-
-		if( keystate[SDLK_n] )
-	{
-		// Move camera forward
-		lightPos.y += 0.1f;
-	}
-
-	if( keystate[SDLK_q] && !polyDownKeyPressed)
-	{
-		// Move camera forward
-		polyIndex--;
-		polyDownKeyPressed = true;
-		cout << "Drawing polygon " << polyIndex << endl;
-	}
-	else if( !keystate[SDLK_q] && polyDownKeyPressed)
-	{
-		polyDownKeyPressed = false;
-	}
-
-	if( keystate[SDLK_w] && !polyUpKeyPressed)
-	{
-		// Move camera forward
-		polyIndex++;
-		polyUpKeyPressed = true;
-		cout << "Drawing polygon " << polyIndex << endl;
-	}
-	else if( !keystate[SDLK_w] && polyUpKeyPressed)
-	{
-		polyUpKeyPressed = false;
+		lightPos += 0.1f*right;
 	}
 
 	// Update camera rotation matrix
@@ -197,19 +156,22 @@ void Draw()
 	{
 		// Get the 3 vertices of the triangle
 		vector<Vertex> vertices(3);
+		vec3 reflectance(0.5f,0.5f,0.5f);
 		vertices[0].position = triangles[i].v0;
 		vertices[0].normal = triangles[i].normal;
-		vertices[0].reflectance = vec2(0.5f,0.5f);
+		vertices[0].reflectance = vec3(1.0f,1.0f,1.0f);
 
 		vertices[1].position = triangles[i].v1;
 		vertices[1].normal = triangles[i].normal;
-		vertices[1].reflectance = vec2(0.5f,0.5f);
+		vertices[1].reflectance = vec3(1.0f,1.0f,1.0f);
 
 		vertices[2].position = triangles[i].v2;
 		vertices[2].normal = triangles[i].normal;
-		vertices[2].reflectance = vec2(0.5f,0.5f);
+		vertices[2].reflectance = vec3(1.0f,1.0f,1.0f);
 
 		currentColor = triangles[i].color;
+		currentNormal = triangles[i].normal;
+		currentReflectance = vec3(1.0f,1.0f,1.0f);
 
 		DrawPolygon( vertices );
 	}
@@ -242,7 +204,7 @@ void VertexShader( const Vertex& v, Pixel& p )
 
 	//vec3 R = v2.reflectance * (D + indirectLightPowerPerArea);
 
-	p.illumination = (D + indirectLightPowerPerArea) * currentColor;
+	p.illumination = v2.reflectance * (D + indirectLightPowerPerArea) * currentColor;
 
 	//vec3 R = D + indirectLightPowerPerArea;
 

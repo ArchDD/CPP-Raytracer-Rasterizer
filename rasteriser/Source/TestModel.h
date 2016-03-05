@@ -105,7 +105,7 @@ struct Vertex
 public:
 	glm::vec3 position;
 	glm::vec3 normal;
-	glm::vec2 reflectance;
+	glm::vec3 reflectance;
 
 	Vertex(const Vertex &v0)
 	{
