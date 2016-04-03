@@ -174,20 +174,20 @@ void Draw()
 void VertexShader( const Vertex& v, Pixel& p )
 {
 	// We need to adjust the vertex positions based on the camera position and rotation
-	Vertex v2(v);
-	v2.position = (v.position - cameraPos) * cameraRot;
+	vec3 pos = (v.position - cameraPos) * cameraRot;
 
+	// prevent dividing by 0
+	if(pos.z < 0.01f)
+		pos.z = 0.01f;
 	// Store the 3D position of the vertex in the pixel. Divide by the Z value so the value interpolates correctly over the perspective
-	p.pos3d = v2.position / v2.position.z;
+	p.pos3d = pos / pos.z;
 
 	// Calculate depth of pixel, inversed so the value interpolates correctly over the perspective
-	p.zinv = 1.0f / v2.position.z;
+	p.zinv = 1.0f / pos.z;
 
 	// Calculate 2D screen position and place (0,0) at top left of the screen
-	p.x = int(focalLength * (v2.position.x * p.zinv)) + (SCREEN_WIDTH / 2.0f);
-	p.y = int(focalLength * (v2.position.y * p.zinv)) + (SCREEN_HEIGHT / 2.0f);
-	//p.x = int(focalLength * (v2.position.x )) + (SCREEN_WIDTH / 2.0f);
-	//p.y = int(focalLength * (v2.position.y )) + (SCREEN_HEIGHT / 2.0f);
+	p.x = int(focalLength * (pos.x * p.zinv)) + (SCREEN_WIDTH / 2.0f);
+	p.y = int(focalLength * (pos.y * p.zinv)) + (SCREEN_HEIGHT / 2.0f);
 
 	if (p.x > SCREEN_WIDTH)
 		p.x = SCREEN_WIDTH;
