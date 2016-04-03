@@ -82,8 +82,8 @@ void Update()
 	{
 		for( int x=0; x<SCREEN_WIDTH; ++x )
 		{
-			vec3 color( 0.0, 0.0, 0.0 );
-			depthBuffer[y][x] = 0;
+			vec3 color( 0.0f, 0.0f, 0.0f );
+			depthBuffer[y][x] = 0.0f;
 			PutPixelSDL( screen, x, y, color );
 		}
 	}
@@ -186,6 +186,17 @@ void VertexShader( const Vertex& v, Pixel& p )
 	// Calculate 2D screen position and place (0,0) at top left of the screen
 	p.x = int(focalLength * (v2.position.x * p.zinv)) + (SCREEN_WIDTH / 2.0f);
 	p.y = int(focalLength * (v2.position.y * p.zinv)) + (SCREEN_HEIGHT / 2.0f);
+	//p.x = int(focalLength * (v2.position.x )) + (SCREEN_WIDTH / 2.0f);
+	//p.y = int(focalLength * (v2.position.y )) + (SCREEN_HEIGHT / 2.0f);
+
+	if (p.x > SCREEN_WIDTH)
+		p.x = SCREEN_WIDTH;
+	else if (p.x < 0)
+		p.x = 0;
+	if (p.y > SCREEN_HEIGHT)
+		p.y = SCREEN_HEIGHT;
+	else if (p.y < 0)
+		p.y = 0;
 
 	// Calculate vertex lighting. Legacy code.
 	/*
