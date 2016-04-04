@@ -33,11 +33,21 @@ float depthBuffer[SCREEN_HEIGHT][SCREEN_WIDTH];
 vec3 lightPos(0,-0.5,0.5f);
 vec3 lightPower = 14.0f*vec3( 1, 1, 1 );
 vec3 indirectLightPowerPerArea = 0.5f*vec3( 1, 1, 1 );
-int isUpdated = 1;
+bool isUpdated = true;
 
-bool MULTITHREADING_ENABLED = true;
+bool MULTITHREADING_ENABLED = false;
 int NUM_THREADS; // Set by code
 int SAVED_THREADS; // Stores thread value when changed
+
+/* KEY STATES                                                                  */
+bool AA_key_pressed = false;
+bool shadows_key_pressed = false;
+bool DOF_key_pressed = false;
+bool OMP_key_pressed = false;
+bool thread_add_key_pressed = false;
+bool thread_subtract_key_pressed = false;
+bool delete_light_key_pressed = false;
+bool add_light_key_pressed = false;
 
 /* ----------------------------------------------------------------------------*/
 /* FUNCTIONS                                                                   */
@@ -49,11 +59,10 @@ void VertexShader( const vec3& v, Pixel& p );
 void Interpolate( Pixel a, Pixel b, vector<Pixel>& result );
 void Breshenham(Pixel a, Pixel b, vector<Pixel>& result);
 void DrawLineSDL( SDL_Surface* surface, Pixel a, Pixel b, vec3 color );
-void DrawPolygonEdges( const vector<vec3>& vertices );
-void ComputePolygonRows( const vector<Pixel>& vertexPixels, vector<Pixel>& leftPixels, vector<Pixel>& rightPixels );
-void DrawRows( const vector<Pixel>& leftPixels, const vector<Pixel>& rightPixels );
-void DrawPolygon( const vector<Vertex>& vertices );
-void PixelShader( const Pixel& p );
+void ComputePolygonRows( const vector<Pixel>& vertexPixels, vector<Pixel>& leftPixels, vector<Pixel>& rightPixels , vec3 color, vec3 normal);
+void DrawRows( const vector<Pixel>& leftPixels, const vector<Pixel>& rightPixels , vec3 color, vec3 normal);
+void DrawPolygon( const vector<Vertex>& vertices , vec3 color, vec3 normal);
+void PixelShader( const Pixel& p , vec3 color, vec3 normal);
 
 int main( int argc, char* argv[] )
 {
@@ -91,7 +100,7 @@ int main( int argc, char* argv[] )
 			if (isUpdated)
 			{
 				Draw();
-				isUpdated = 1;
+				isUpdated = false;
 			}
 	}
 
@@ -124,17 +133,31 @@ void Update()
 	vec3 forward(cameraRot[2][0], cameraRot[2][1], cameraRot[2][2]);
 	Uint8* keystate = SDL_GetKeyState( 0 );
 
+	if(!OMP_key_pressed && keystate[SDLK_4])
+	{
+		MULTITHREADING_ENABLED = !MULTITHREADING_ENABLED;
+		if(!MULTITHREADING_ENABLED)
+			NUM_THREADS = 1;
+		else
+			NUM_THREADS = SAVED_THREADS;
+		omp_set_num_threads(NUM_THREADS);
+		cout << "Multithreading toggled to " << MULTITHREADING_ENABLED << endl;
+		OMP_key_pressed = true;
+	}
+	else if (!keystate[SDLK_4])
+		OMP_key_pressed = false;
+
 	if( keystate[SDLK_UP] )
 	{
 		// Move camera forward
 		cameraPos += 0.1f*forward;
-		isUpdated = 1;
+		isUpdated = true;
 	}
 	else if( keystate[SDLK_DOWN] )
 	{
 		// Move camera backward
 		cameraPos -= 0.1f*forward;
-		isUpdated = 1;
+		isUpdated = true;
 	}
 	if( keystate[SDLK_LEFT] )
 	{
@@ -146,30 +169,30 @@ void Update()
 	{
 		// Rotate camera to the right
 		yaw -= 0.1f;
-		isUpdated = 1;
+		isUpdated = true;
 	}
 
 	// Light movement controls
 	if (keystate[SDLK_w])
 	{
 		lightPos.z += 0.1f;
-		isUpdated = 1;
+		isUpdated = true;
 	}
 	else if (keystate[SDLK_s])
 	{
 		lightPos.z -= 0.1f;
-		isUpdated = 1;
+		isUpdated = true;
 	}
 
 	if (keystate[SDLK_a])
 	{
 		lightPos.x -= 0.1f;
-		isUpdated = 1;
+		isUpdated = true;;
 	}
 	else if (keystate[SDLK_d])
 	{
 		lightPos.x += 0.1f;
-		isUpdated = 1;
+		isUpdated = true;
 	}
 
 	// Update camera rotation matrix
@@ -186,7 +209,9 @@ void Draw()
 	if( SDL_MUSTLOCK(screen) )
 		SDL_LockSurface(screen);
 
-	//#pragma omp parallel for schedule(auto)
+	currentReflectance = vec3(1.0f,1.0f,1.0f);
+
+	#pragma omp parallel for schedule(dynamic)
 	for( size_t i = 0; i < triangles.size(); ++i )
 	{
 		// Get the 3 vertices of the triangle
@@ -195,12 +220,7 @@ void Draw()
 		vertices[1].position = triangles[i].v1;
 		vertices[2].position = triangles[i].v2;
 
-		// Update global variables for the pixel shader
-		currentColor = triangles[i].color;
-		currentNormal = triangles[i].normal;
-		currentReflectance = vec3(1.0f,1.0f,1.0f);
-
-		DrawPolygon( vertices );
+		DrawPolygon( vertices , triangles[i].color, triangles[i].normal);
 	}
 
 	if( SDL_MUSTLOCK(screen) )
@@ -239,7 +259,7 @@ void VertexShader( const Vertex& v, Pixel& p )
 }
 
 // Calculate per pixel lighting
-void PixelShader( const Pixel& p )
+void PixelShader( const Pixel& p , vec3 color, vec3 normal)
 {
 	int x = p.x;
 	int y = p.y;
@@ -253,17 +273,17 @@ void PixelShader( const Pixel& p )
 	float A = 4*M_PI*(r*r);
 	
 	vec3 rDir = glm::normalize(lightPos - pPos3d);
-	vec3 nDir = currentNormal;
+	vec3 nDir = normal;
 
 	vec3 D = (lightPower * max(glm::dot(rDir,nDir), 0.0f)) / A;
 
-	vec3 pixelColor = currentReflectance * (D + indirectLightPowerPerArea) * currentColor;
+	vec3 pixelColor = currentReflectance * (D + indirectLightPowerPerArea) * color;
 
 	PutPixelSDL( screen, x, y, pixelColor );
 }
 
 // Draws a line between two points
-void DrawLineSDL( SDL_Surface* surface, Pixel a, Pixel b, vec3 color )
+void DrawLineSDL( SDL_Surface* surface, Pixel a, Pixel b, vec3 color, vec3 normal)
 {
 	Pixel delta = a - b;
 	PixelAbs(delta);
@@ -287,7 +307,7 @@ void DrawLineSDL( SDL_Surface* surface, Pixel a, Pixel b, vec3 color )
 		if(line[i].y < SCREEN_HEIGHT && line[i].y >= 0 && line[i].x < SCREEN_WIDTH && line[i].x >= 0 && line[i].zinv > depthBuffer[line[i].y][line[i].x])
 		{
 			depthBuffer[line[i].y][line[i].x] = line[i].zinv;
-			PixelShader(line[i]);
+			PixelShader(line[i], color, normal);
 		}
 	}
 }
@@ -412,15 +432,15 @@ void ComputePolygonRows( const vector<Pixel>& vertexPixels, vector<Pixel>& leftP
 }
 
 // Draw a line for each row of the triangle
-void DrawRows( const vector<Pixel>& leftPixels, const vector<Pixel>& rightPixels )
+void DrawRows( const vector<Pixel>& leftPixels, const vector<Pixel>& rightPixels , vec3 color, vec3 normal)
 {
 	for(int i = 0; i < leftPixels.size(); i++)
 	{
-		DrawLineSDL(screen, leftPixels[i],rightPixels[i],currentColor);
+		DrawLineSDL(screen, leftPixels[i],rightPixels[i],color, normal);
 	}
 }
 
-void DrawPolygon( const vector<Vertex>& vertices )
+void DrawPolygon( const vector<Vertex>& vertices , vec3 color, vec3 normal)
 {
 	int V = vertices.size();
 	vector<Pixel> vertexPixels( V );
@@ -432,5 +452,5 @@ void DrawPolygon( const vector<Vertex>& vertices )
 	vector<Pixel> rightPixels;
 
 	ComputePolygonRows( vertexPixels, leftPixels, rightPixels );
-	DrawRows( leftPixels, rightPixels );
+	DrawRows( leftPixels, rightPixels , color, normal);
 }
