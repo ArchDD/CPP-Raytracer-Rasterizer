@@ -3,6 +3,7 @@
 #include <SDL.h>
 #include "SDLauxiliary.h"
 #include "TestModel.h"
+#include <omp.h>
 
 using namespace std;
 using glm::vec3;
@@ -32,6 +33,11 @@ float depthBuffer[SCREEN_HEIGHT][SCREEN_WIDTH];
 vec3 lightPos(0,-0.5,0.5f);
 vec3 lightPower = 14.0f*vec3( 1, 1, 1 );
 vec3 indirectLightPowerPerArea = 0.5f*vec3( 1, 1, 1 );
+int isUpdated = 1;
+
+bool MULTITHREADING_ENABLED = true;
+int NUM_THREADS; // Set by code
+int SAVED_THREADS; // Stores thread value when changed
 
 /* ----------------------------------------------------------------------------*/
 /* FUNCTIONS                                                                   */
@@ -59,10 +65,34 @@ int main( int argc, char* argv[] )
 
 	cameraRot[1][1] = 1.0f;
 
+	// Request as many threads as the system can provide
+	NUM_THREADS = omp_get_max_threads();
+    omp_set_num_threads(NUM_THREADS);
+
+    // Set NUM_THREADS to how many the system can actually provide
+    #pragma omp parallel
+    {
+    	int ID = omp_get_thread_num();
+    	if(ID == 0)
+    		NUM_THREADS = omp_get_num_threads();
+    	    SAVED_THREADS = NUM_THREADS;
+    }
+
+    if(MULTITHREADING_ENABLED)
+    {
+    	cout << "Multithreading enabled with " << NUM_THREADS << " threads" << endl;
+    }
+    else
+    	omp_set_num_threads(1);
+
 	while( NoQuitMessageSDL() )
 	{
-		Update();
-		Draw();
+			Update();
+			if (isUpdated)
+			{
+				Draw();
+				isUpdated = 1;
+			}
 	}
 
 	SDL_SaveBMP( screen, "screenshot.bmp" );
@@ -98,40 +128,48 @@ void Update()
 	{
 		// Move camera forward
 		cameraPos += 0.1f*forward;
+		isUpdated = 1;
 	}
 	else if( keystate[SDLK_DOWN] )
 	{
 		// Move camera backward
 		cameraPos -= 0.1f*forward;
+		isUpdated = 1;
 	}
 	if( keystate[SDLK_LEFT] )
 	{
 		// Rotate camera to the left
 		yaw += 0.1f;
+		isUpdated = 1;
 	}
 	else if( keystate[SDLK_RIGHT] )
 	{
 		// Rotate camera to the right
 		yaw -= 0.1f;
+		isUpdated = 1;
 	}
 
 	// Light movement controls
 	if (keystate[SDLK_w])
 	{
 		lightPos.z += 0.1f;
+		isUpdated = 1;
 	}
 	else if (keystate[SDLK_s])
 	{
 		lightPos.z -= 0.1f;
+		isUpdated = 1;
 	}
 
 	if (keystate[SDLK_a])
 	{
 		lightPos.x -= 0.1f;
+		isUpdated = 1;
 	}
 	else if (keystate[SDLK_d])
 	{
 		lightPos.x += 0.1f;
+		isUpdated = 1;
 	}
 
 	// Update camera rotation matrix
@@ -148,6 +186,7 @@ void Draw()
 	if( SDL_MUSTLOCK(screen) )
 		SDL_LockSurface(screen);
 
+	//#pragma omp parallel for schedule(auto)
 	for( size_t i = 0; i < triangles.size(); ++i )
 	{
 		// Get the 3 vertices of the triangle
@@ -197,20 +236,6 @@ void VertexShader( const Vertex& v, Pixel& p )
 		p.y = SCREEN_HEIGHT;
 	else if (p.y < 0)
 		p.y = 0;
-
-	// Calculate vertex lighting. Legacy code.
-	/*
-	float r = glm::distance(v.position, lightPos);
-	float A = 4*M_PI*(r*r);
-	
-	vec3 rDir = glm::normalize(lightPos - v.position);
-	vec3 nDir = v.normal;
-
-	vec3 D = (lightPower * max(glm::dot(rDir,nDir), 0.0f)) / A;
-
-	p.illumination = v2.reflectance * (D + indirectLightPowerPerArea) * currentColor;
-	*/
-
 }
 
 // Calculate per pixel lighting
@@ -243,6 +268,7 @@ void DrawLineSDL( SDL_Surface* surface, Pixel a, Pixel b, vec3 color )
 	Pixel delta = a - b;
 	PixelAbs(delta);
 	
+	// DDA
 	/*int pixels = max( delta.x, delta.y ) + 1;
 
 	vector<Pixel> line( pixels );
