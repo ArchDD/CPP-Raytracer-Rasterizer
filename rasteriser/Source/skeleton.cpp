@@ -40,8 +40,8 @@ vector<Triangle> triangles;
 void Update();
 void Draw();
 void VertexShader( const vec3& v, Pixel& p );
-void Interpolate( ivec2 a, ivec2 b, vector<ivec2>& result );
 void Interpolate( Pixel a, Pixel b, vector<Pixel>& result );
+void Breshenham(Pixel a, Pixel b, vector<Pixel>& result);
 void DrawLineSDL( SDL_Surface* surface, Pixel a, Pixel b, vec3 color );
 void DrawPolygonEdges( const vector<vec3>& vertices );
 void ComputePolygonRows( const vector<Pixel>& vertexPixels, vector<Pixel>& leftPixels, vector<Pixel>& rightPixels );
@@ -243,11 +243,17 @@ void DrawLineSDL( SDL_Surface* surface, Pixel a, Pixel b, vec3 color )
 	Pixel delta = a - b;
 	PixelAbs(delta);
 	
-	int pixels = max( delta.x, delta.y ) + 1;
+	/*int pixels = max( delta.x, delta.y ) + 1;
 
 	vector<Pixel> line( pixels );
 
-	Interpolate( a, b, line );
+	Interpolate( a, b, line );*/
+
+	// Breshenam
+	int pixels = b.x-a.x;
+	vector<Pixel> line (pixels);
+
+	Breshenham(a,b,line);
 
 	for(int i = 0; i < pixels; ++i)
 	{
@@ -257,23 +263,6 @@ void DrawLineSDL( SDL_Surface* surface, Pixel a, Pixel b, vec3 color )
 			depthBuffer[line[i].y][line[i].x] = line[i].zinv;
 			PixelShader(line[i]);
 		}
-	}
-}
-
-// Interpolates between two 2D vectors
-void Interpolate( ivec2 a, ivec2 b, vector<ivec2>& result )
-{
-	int N = result.size();
-
-	vec2 step = vec2(b-a);
-	step = step / float(max(N-1,1));
-	
-	vec2 current( a );
-
-	for( int i=0; i<N; ++i )
-	{
-		result[i] = current;
-		current += step;
 	}
 }
 
@@ -299,6 +288,37 @@ void Interpolate( Pixel a, Pixel b, vector<Pixel>& result )
 		current.y += step.y;
 		current.zinv += step.zinv;
 		current.pos3d += step.pos3d;
+	}
+}
+
+void Breshenham(Pixel a, Pixel b, vector<Pixel>& result)
+{
+	int x = a.x;
+	int y = a.y;
+	int dx = b.x-a.x, dy = b.y-a.y;
+	int dx2 = 2*dx, dy2 = 2*dy;
+	int dydx2 = dy2 - dx2;
+	int d = dy2 - dx;
+
+	float zinv = (b.zinv - a.zinv)/float(dx);
+	vec3 pos3d = (b.pos3d - a.pos3d)/float(dx);
+
+	for (int i = 0;  i < dx; i++)
+	{
+		x+=1;
+		if (d<0)
+		{
+			d+=dy2;
+		}
+		else
+		{
+			y+=1;
+			d+=dydx2;
+		}
+		result[i].x = x;
+		result[i].y = y;
+		result[i].zinv = a.zinv+zinv*float(i);
+		result[i].pos3d = a.pos3d+pos3d*float(i);
 	}
 }
 
