@@ -30,7 +30,7 @@ vector<Triangle> triangles;
 /* RENDER SETTINGS                                                             */
 //#define REALTIME
 
-bool MULTITHREADING_ENABLED = false;
+bool MULTITHREADING_ENABLED = true;
 int NUM_THREADS; // Set by code
 int SAVED_THREADS; // Stores thread value when changed
 
@@ -75,6 +75,7 @@ float yaw = 0.0;
 
 SDL_Surface* screen;
 int t;
+bool isUpdated = true;
 
 // Ambient Lighting
 vec3 indirectLight = 0.2f*vec3(1,1,1);
@@ -164,7 +165,11 @@ int main( int argc, char* argv[] )
 	while( NoQuitMessageSDL() )
 	{
 		Update();
-		Draw();
+		if (isUpdated)
+		{
+			Draw();
+			isUpdated = false;
+		}
 	}
 
 	SDL_SaveBMP( screen, "screenshot.bmp" );
@@ -347,21 +352,25 @@ void Update()
 	{
 		// Move camera forward
 		cameraPos += 0.1f*forward;
+		isUpdated = true;
 	}
 	else if( keystate[SDLK_DOWN] )
 	{
 		// Move camera backward
 		cameraPos -= 0.1f*forward;
+		isUpdated = true;
 	}
 	if( keystate[SDLK_LEFT] )
 	{
 		// Rotate camera to the left
 		yaw += 0.1f;
+		isUpdated = true;
 	}
 	else if( keystate[SDLK_RIGHT] )
 	{
 		// Rotate camera to the right
 		yaw -= 0.1f;
+		isUpdated = true;
 	}
 
 	// Update camera rotation matrix
@@ -381,6 +390,7 @@ void Update()
 		{
 			randomPositions[i] += 0.1f*forward;
 		}
+		isUpdated = true;
 	}
 	else if (keystate[SDLK_s])
 	{
@@ -389,6 +399,7 @@ void Update()
 		{
 			randomPositions[i] -= 0.1f*forward;
 		}
+		isUpdated = true;
 	}
 
 	// Light movement controls
@@ -399,6 +410,7 @@ void Update()
 		{
 			randomPositions[i] -= 0.1f*right;
 		}
+		isUpdated = true;
 	}
 	else if (keystate[SDLK_d])
 	{
@@ -407,6 +419,7 @@ void Update()
 		{
 			randomPositions[i] += 0.1f*right;
 		}
+		isUpdated = true;
 	}
 
 	// Need to check if key has been released to stop the option toggling every frame
@@ -415,38 +428,48 @@ void Update()
 		AA_ENABLED = !AA_ENABLED;
 		cout << "Antialiasing toggled to " << AA_ENABLED << endl;
 		AA_key_pressed = true;
+		isUpdated = true;
 	}
 	else if (!keystate[SDLK_7])
+	{
 		AA_key_pressed = false;
+	}
 
 	if(!shadows_key_pressed && keystate[SDLK_8])
 	{
 		SOFT_SHADOWS_ENABLED = !SOFT_SHADOWS_ENABLED;
 		cout << "Soft Shadows toggled to " << SOFT_SHADOWS_ENABLED << endl;
 		shadows_key_pressed = true;
+		isUpdated = true;
 	}
 	else if (!keystate[SDLK_8])
+	{
 		shadows_key_pressed = false;
+	}
 
 	if(!DOF_key_pressed && keystate[SDLK_9])
 	{
 		DOF_ENABLED = !DOF_ENABLED;
 		cout << "Depth of Field toggled to " << DOF_ENABLED << endl;
 		DOF_key_pressed = true;
+		isUpdated = true;
 	}
 	else if (!keystate[SDLK_9])
+	{
 		DOF_key_pressed = false;
+	}
 
-	if (keystate[SDLK_PLUS])
+	if (keystate[SDLK_0])
 	{
 		FOCAL_LENGTH += 0.1f;
 		cout << "Focal length is " << FOCAL_LENGTH << endl;
+		isUpdated = true;
 	}
-		
-	if (keystate[SDLK_MINUS])
+	else if (keystate[SDLK_MINUS])
 	{
 		FOCAL_LENGTH -= 0.1f;
 		cout << "Focal length is " << FOCAL_LENGTH << endl;
+		isUpdated = true;
 	}
 
 	if(!OMP_key_pressed && keystate[SDLK_4])
@@ -459,9 +482,12 @@ void Update()
 		omp_set_num_threads(NUM_THREADS);
 		cout << "Multithreading toggled to " << MULTITHREADING_ENABLED << endl;
 		OMP_key_pressed = true;
+		isUpdated = true;
 	}
 	else if (!keystate[SDLK_4])
+	{
 		OMP_key_pressed = false;
+	}
 
 	if(!thread_add_key_pressed && keystate[SDLK_6])
 	{
@@ -470,9 +496,12 @@ void Update()
 		omp_set_num_threads(NUM_THREADS);
 		cout << "Threads increased to " << NUM_THREADS << endl;
 		thread_add_key_pressed = true;
+		isUpdated = true;
 	}
 	else if (!keystate[SDLK_6])
+	{
 		thread_add_key_pressed = false;
+	}
 
 	if(!thread_subtract_key_pressed && keystate[SDLK_5])
 	{
@@ -481,27 +510,36 @@ void Update()
 		omp_set_num_threads(NUM_THREADS);
 		cout << "Threads decreased to " << NUM_THREADS << endl;
 		thread_subtract_key_pressed = true;
+		isUpdated = true;
 	}
 	else if (!keystate[SDLK_5])
+	{
 		thread_subtract_key_pressed = false;
+	}
 
 	if(!add_light_key_pressed && keystate[SDLK_2])
 	{
 		AddLight(vec3(RandomNumber() * 2.0f, RandomNumber() * 2.0f, RandomNumber() * 2.0f),vec3(abs(RandomNumber()) * 2.0f + 0.2f,abs(RandomNumber()) * 2.0f + 0.2f,abs(RandomNumber()) * 2.0f + 0.2f),abs(RandomNumber()) * 20.0f);
 		cout << "Spawned a light" << endl;
 		add_light_key_pressed = true;
+		isUpdated = true;
 	}
 	else if (!keystate[SDLK_2])
+	{
 		add_light_key_pressed = false;
+	}
 
 	if(!delete_light_key_pressed && keystate[SDLK_3])
 	{
 		DeleteLight();
 		cout << "Deleted a light" << endl;
 		delete_light_key_pressed = true;
+		isUpdated = true;
 	}
 	else if (!keystate[SDLK_3])
+	{
 		delete_light_key_pressed = false;
+	}
 		
 
 }
