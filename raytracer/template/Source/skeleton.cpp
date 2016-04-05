@@ -165,12 +165,6 @@ int main( int argc, char* argv[] )
 	{
 		Update();
 		Draw();
-		
-		// Reset intersection distances
-		for(i = 0; i < SCREEN_WIDTH*SCREEN_HEIGHT; i++)
-		{
-			closestIntersections[i].distance = m;
-		}
 	}
 
 	SDL_SaveBMP( screen, "screenshot.bmp" );
@@ -331,6 +325,14 @@ void Update()
 {
 	// Compute frame time
 	int t2 = SDL_GetTicks();
+
+	// Reset intersection distances
+	float m = std::numeric_limits<float>::max();
+	for(int i = 0; i < SCREEN_WIDTH*SCREEN_HEIGHT; i++)
+	{
+		closestIntersections[i].distance = m;
+	}
+
 	float dt = float(t2-t);
 	t = t2;
 	cout << "Render time: " << dt << " ms." << endl;
