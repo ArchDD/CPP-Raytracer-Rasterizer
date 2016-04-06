@@ -105,7 +105,7 @@ int main( int argc, char* argv[] )
 			if (isUpdated)
 			{
 				Draw();
-				isUpdated = true;
+				isUpdated = false;
 			}
 	}
 
