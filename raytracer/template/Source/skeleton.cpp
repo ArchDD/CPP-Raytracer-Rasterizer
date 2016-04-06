@@ -459,13 +459,13 @@ void Update()
 		DOF_key_pressed = false;
 	}
 
-	if (keystate[SDLK_0])
+	if (keystate[SDLK_RIGHTBRACKET])
 	{
 		FOCAL_LENGTH += 0.1f;
 		cout << "Focal length is " << FOCAL_LENGTH << endl;
 		isUpdated = true;
 	}
-	else if (keystate[SDLK_MINUS])
+	else if (keystate[SDLK_LEFTBRACKET])
 	{
 		FOCAL_LENGTH -= 0.1f;
 		cout << "Focal length is " << FOCAL_LENGTH << endl;
