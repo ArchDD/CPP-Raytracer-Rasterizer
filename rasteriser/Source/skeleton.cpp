@@ -39,22 +39,18 @@ bool MULTITHREADING_ENABLED = false;
 int NUM_THREADS; // Set by code
 int SAVED_THREADS; // Stores thread value when changed
 
-bool AA_ENABLED = false;
-int AA_SAMPLES = 3;
+bool CULLING_ENABLED = true;
 
 /* KEY STATES                                                                  */
-bool AA_key_pressed = false;
-bool shadows_key_pressed = false;
-bool DOF_key_pressed = false;
 bool OMP_key_pressed = false;
 bool thread_add_key_pressed = false;
 bool thread_subtract_key_pressed = false;
-bool delete_light_key_pressed = false;
-bool add_light_key_pressed = false;
 
 /* ----------------------------------------------------------------------------*/
 /* FUNCTIONS                                                                   */
 vector<Triangle> triangles;
+vector<Triangle> activeTriangles;
+Frustum frustum;
 
 void Update();
 void Draw();
@@ -80,6 +76,7 @@ int main( int argc, char* argv[] )
 	NUM_THREADS = omp_get_max_threads();
     omp_set_num_threads(NUM_THREADS);
 
+
     // Set NUM_THREADS to how many the system can actually provide
     #pragma omp parallel
     {
@@ -95,9 +92,6 @@ int main( int argc, char* argv[] )
     }
     else
     	omp_set_num_threads(1);
-
-    if(AA_ENABLED)
-		cout << "Antialiasing enabled with samples: " << AA_SAMPLES << endl;
 
 	t = SDL_GetTicks();	// Set start value for timer.
 
@@ -178,16 +172,6 @@ void Update()
 	else if (!keystate[SDLK_6])
 		thread_add_key_pressed = false;
 
-	if(!AA_key_pressed && keystate[SDLK_7])
-	{
-		AA_ENABLED = !AA_ENABLED;
-		cout << "Antialiasing toggled to " << AA_ENABLED << endl;
-		AA_key_pressed = true;
-		isUpdated = true;
-	}
-	else if (!keystate[SDLK_7])
-		AA_key_pressed = false;
-
 	if( keystate[SDLK_UP] )
 	{
 		// Move camera forward
@@ -243,19 +227,24 @@ void Update()
 	cameraRot[0][2] = s;
 	cameraRot[2][0] = -s;
 	cameraRot[2][2] = c;
+
+	// Calculate frustum volume
+	/*float nearZ = cameraPos.z + 0.1f*forward.z;
+	float farZ = cameraPos.z + 10.0f*forward.z;
+	frustum.nearTopLeft = nearZ*(-SCREEN_WIDTH/2)/focalLength;
+	frustum.nearTopRight = nearZ*(SCREEN_WIDTH/2)/focalLength;
+	frustum.nearBottomLeft = nearZ*(-SCREEN_HEIGHT/2)/focalLength;
+	frustum.nearBottomRight = nearZ*(SCREEN_HEIGHT/2)/focalLength;
+	frustum.farTopLeft = farZ*(-SCREEN_WIDTH/2)/focalLength;
+	frustum.farTopRight = farZ*(SCREEN_WIDTH/2)/focalLength;
+	frustum.farBottomLeft = farZ*(-SCREEN_HEIGHT/2)/focalLength;
+	frustum.farBottomRight = farZ*(SCREEN_HEIGHT/2)/focalLength;*/
 }
 
 void Draw()
 {
 	if( SDL_MUSTLOCK(screen) )
 		SDL_LockSurface(screen);
-
-	int realSamples; // Number of AA samples to use. Set to 1 if AA is disabled
-
-	if(AA_ENABLED)
-		realSamples = AA_SAMPLES;
-	else
-		realSamples = 1;
 
 	currentReflectance = vec3(1.0f,1.0f,1.0f);
 
