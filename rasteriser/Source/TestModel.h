@@ -15,9 +15,10 @@ public:
 	glm::vec3 v2;
 	glm::vec3 normal;
 	glm::vec3 color;
+	bool isCulled;
 
 	Triangle( glm::vec3 v0, glm::vec3 v1, glm::vec3 v2, glm::vec3 color )
-		: v0(v0), v1(v1), v2(v2), color(color)
+		: v0(v0), v1(v1), v2(v2), color(color), isCulled(false)
 	{
 		ComputeNormal();
 	}
@@ -49,6 +50,19 @@ public:
 
 	Pixel(){}
 
+};
+
+struct Frustum
+{
+public:
+	glm::vec3 nearTopLeft;
+	glm::vec3 nearTopRight;
+	glm::vec3 nearBottomLeft;
+	glm::vec3 nearBottomRight;
+	glm::vec3 farTopLeft;
+	glm::vec3 farTopRight;
+	glm::vec3 farBottomLeft;
+	glm::vec3 farBottomRight;
 };
 
 // Allows subtraction of the Pixel class

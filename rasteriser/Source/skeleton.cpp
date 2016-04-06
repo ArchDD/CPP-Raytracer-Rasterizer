@@ -14,6 +14,8 @@ using glm::ivec2;
 /* ----------------------------------------------------------------------------*/
 /* GLOBAL VARIABLES                                                            */
 
+//#define FRUSTUM // Uncomment this for naive frustum culling
+
 const int SCREEN_WIDTH = 500;
 const int SCREEN_HEIGHT = 500;
 SDL_Surface* screen;
@@ -39,12 +41,13 @@ bool MULTITHREADING_ENABLED = false;
 int NUM_THREADS; // Set by code
 int SAVED_THREADS; // Stores thread value when changed
 
-bool CULLING_ENABLED = true;
+bool BACKFACE_CULLING_ENABLED = false;
 
 /* KEY STATES                                                                  */
 bool OMP_key_pressed = false;
 bool thread_add_key_pressed = false;
 bool thread_subtract_key_pressed = false;
+bool backface_key_pressed = false;
 
 /* ----------------------------------------------------------------------------*/
 /* FUNCTIONS                                                                   */
@@ -62,6 +65,7 @@ void ComputePolygonRows( const vector<Pixel>& vertexPixels, vector<Pixel>& leftP
 void DrawRows( const vector<Pixel>& leftPixels, const vector<Pixel>& rightPixels , vec3 color, vec3 normal);
 void DrawPolygon( const vector<Vertex>& vertices , vec3 color, vec3 normal);
 void PixelShader( const Pixel& p , vec3 color, vec3 normal);
+bool InFrustum(vec3 v);
 
 int main( int argc, char* argv[] )
 {
@@ -101,7 +105,7 @@ int main( int argc, char* argv[] )
 			if (isUpdated)
 			{
 				Draw();
-				isUpdated = false;
+				isUpdated = true;
 			}
 	}
 
@@ -172,6 +176,26 @@ void Update()
 	else if (!keystate[SDLK_6])
 		thread_add_key_pressed = false;
 
+	if(!backface_key_pressed && keystate[SDLK_7])
+	{
+		if(BACKFACE_CULLING_ENABLED)
+		{
+			BACKFACE_CULLING_ENABLED = false;
+			// Reactive all triangles
+			for( size_t i = 0; i < triangles.size(); ++i )
+			{
+				triangles[i].isCulled = false;
+			}
+		}
+		else
+			BACKFACE_CULLING_ENABLED = true;
+		cout << "Backface culling toggled " << endl;
+		backface_key_pressed = true;
+		isUpdated = true;
+	}
+	else if (!keystate[SDLK_7])
+		backface_key_pressed = false;
+
 	if( keystate[SDLK_UP] )
 	{
 		// Move camera forward
@@ -220,25 +244,66 @@ void Update()
 		isUpdated = true;
 	}
 
-	// Update camera rotation matrix
-	float c = cos(yaw);
-	float s = sin(yaw);
-	cameraRot[0][0] = c;
-	cameraRot[0][2] = s;
-	cameraRot[2][0] = -s;
-	cameraRot[2][2] = c;
+	if (isUpdated)
+	{
+		// Update camera rotation matrix
+		float c = cos(yaw);
+		float s = sin(yaw);
+		cameraRot[0][0] = c;
+		cameraRot[0][2] = s;
+		cameraRot[2][0] = -s;
+		cameraRot[2][2] = c;
 
-	// Calculate frustum volume
-	/*float nearZ = cameraPos.z + 0.1f*forward.z;
-	float farZ = cameraPos.z + 10.0f*forward.z;
-	frustum.nearTopLeft = nearZ*(-SCREEN_WIDTH/2)/focalLength;
-	frustum.nearTopRight = nearZ*(SCREEN_WIDTH/2)/focalLength;
-	frustum.nearBottomLeft = nearZ*(-SCREEN_HEIGHT/2)/focalLength;
-	frustum.nearBottomRight = nearZ*(SCREEN_HEIGHT/2)/focalLength;
-	frustum.farTopLeft = farZ*(-SCREEN_WIDTH/2)/focalLength;
-	frustum.farTopRight = farZ*(SCREEN_WIDTH/2)/focalLength;
-	frustum.farBottomLeft = farZ*(-SCREEN_HEIGHT/2)/focalLength;
-	frustum.farBottomRight = farZ*(SCREEN_HEIGHT/2)/focalLength;*/
+#ifdef FRUSTUM
+		// Calculate frustum volume
+		vec3 near = cameraPos + 0.1f*forward;
+		vec3 far = cameraPos + 10.0f*forward;
+		frustum.nearTopLeft = near*(-SCREEN_WIDTH/2.0f)/focalLength;
+		frustum.nearTopRight = near*(SCREEN_WIDTH/2.0f)/focalLength;
+		frustum.nearBottomLeft = near*(-SCREEN_HEIGHT/2.0f)/focalLength;
+		frustum.nearBottomRight = near*(SCREEN_HEIGHT/2.0f)/focalLength;
+		frustum.farTopLeft = far*(-SCREEN_WIDTH/2.0f)/focalLength;
+		frustum.farTopRight = far*(SCREEN_WIDTH/2.0f)/focalLength;
+		frustum.farBottomLeft = far*(-SCREEN_HEIGHT/2.0f)/focalLength;
+		frustum.farBottomRight = far*(SCREEN_HEIGHT/2.0f)/focalLength;
+
+		for( size_t i = 0; i < triangles.size(); ++i )
+		{
+			if (InFrustum(triangles[i].v0) && InFrustum(triangles[i].v1) && InFrustum(triangles[i].v2))
+				triangles[i].isCulled = true;
+			else
+				triangles[i].isCulled = false;
+		}
+#endif
+		// Backface culling
+		if (BACKFACE_CULLING_ENABLED)
+		{
+			for( size_t i = 0; i < triangles.size(); ++i )
+			{
+				if (dot(forward,triangles[i].normal) > 0.8f)
+				{
+					triangles[i].isCulled = true;
+				}
+				else
+					triangles[i].isCulled = false;
+			}
+		}
+	}
+}
+
+bool InFrustum(vec3 v)
+{
+	if (v.x < frustum.nearTopRight.x && v.x < frustum.farTopRight.x &&
+		v.x > frustum.nearTopLeft.x && v.x > frustum.farTopLeft.x &&
+		v.y < frustum.nearBottomLeft.y && v.y < frustum.farBottomLeft.y &&
+		v.y < frustum.nearTopLeft.y && v.y < frustum.farTopLeft.y &&
+		v.z < frustum.farTopLeft.z && v.z > frustum.nearTopLeft.z
+		)
+	{
+		return true;
+	}
+
+	return false;
 }
 
 void Draw()
@@ -251,13 +316,15 @@ void Draw()
 	#pragma omp parallel for schedule(dynamic)
 	for( size_t i = 0; i < triangles.size(); ++i )
 	{
-		// Get the 3 vertices of the triangle
-		vector<Vertex> vertices(3);
-		vertices[0].position = triangles[i].v0;
-		vertices[1].position = triangles[i].v1;
-		vertices[2].position = triangles[i].v2;
-
-		DrawPolygon( vertices , triangles[i].color, triangles[i].normal);
+		if (!triangles[i].isCulled)
+		{
+			// Get the 3 vertices of the triangle
+			vector<Vertex> vertices(3);
+			vertices[0].position = triangles[i].v0;
+			vertices[1].position = triangles[i].v1;
+			vertices[2].position = triangles[i].v2;
+			DrawPolygon( vertices , triangles[i].color, triangles[i].normal);
+		}
 	}
 
 	if( SDL_MUSTLOCK(screen) )
