@@ -20,9 +20,11 @@ const int SCREEN_WIDTH = 500;
 const int SCREEN_HEIGHT = 500;
 SDL_Surface* screen;
 int t;
-float focalLength = 250.0f;
+/*float focalLength = 250.0f;
 
-vec3 cameraPos( 0, 0, -2.0f );
+vec3 cameraPos( 0, 0, -2.0f );*/
+float focalLength = 1000.0f;
+vec3 cameraPos( 0, 0, -5.0f);
 mat3 cameraRot = mat3(0.0f);
 float yaw = 0; // Yaw angle controlling camera rotation around y-axis
 
@@ -199,48 +201,48 @@ void Update()
 	if( keystate[SDLK_UP] )
 	{
 		// Move camera forward
-		cameraPos += 0.1f*forward;
+		cameraPos += 0.05f*forward;
 		isUpdated = true;
 	}
 	else if( keystate[SDLK_DOWN] )
 	{
 		// Move camera backward
-		cameraPos -= 0.1f*forward;
+		cameraPos -= 0.05f*forward;
 		isUpdated = true;
 	}
 	if( keystate[SDLK_LEFT] )
 	{
 		// Rotate camera to the left
-		yaw += 0.1f;
+		yaw += 0.0025f;
 		isUpdated = 1;
 	}
 	else if( keystate[SDLK_RIGHT] )
 	{
 		// Rotate camera to the right
-		yaw -= 0.1f;
+		yaw -= 0.0025f;
 		isUpdated = true;
 	}
 
 	// Light movement controls
 	if (keystate[SDLK_w])
 	{
-		lightPos.z += 0.1f;
+		lightPos.z += 0.05f;
 		isUpdated = true;
 	}
 	else if (keystate[SDLK_s])
 	{
-		lightPos.z -= 0.1f;
+		lightPos.z -= 0.05f;
 		isUpdated = true;
 	}
 
 	if (keystate[SDLK_a])
 	{
-		lightPos.x -= 0.1f;
+		lightPos.x -= 0.05f;
 		isUpdated = true;;
 	}
 	else if (keystate[SDLK_d])
 	{
-		lightPos.x += 0.1f;
+		lightPos.x += 0.05f;
 		isUpdated = true;
 	}
 
