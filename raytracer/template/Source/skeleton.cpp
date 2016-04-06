@@ -6,7 +6,7 @@
 // Multithreading (4 to toggle, 5-6 to change number of threads) - Uses OpenMP to do calculations across multiple threads
 // Supersample Antialiasing (7 key) - An additional N^2 rays are fired per pixel and the resulting colour averaged to smoothen jagged edges
 // Soft Shadows (8 key) - A light is split into N lights with 1 / N intensity and a random position jitter added to simulate soft shadows
-// Depth of Field (9 to toggle, +/- to change focal length) - Distance vectors relative to focal length stored for each pixel, 
+// Depth of Field (9 to toggle, [ and ] to change focal length) - Distance vectors relative to focal length stored for each pixel, 
 // used to set neighbour weightings in blur kernel
 
 /* ----------------------------------------------------------------------------*/
@@ -610,8 +610,10 @@ void CalculateDOF()
 	if( SDL_MUSTLOCK(screen) )
 		SDL_LockSurface(screen);
 
+	// Total number of pixels in the kernel
 	float totalPixels = DOF_KERNEL_SIZE * DOF_KERNEL_SIZE;
 
+	// Spawn threads
 	#pragma omp parallel for schedule(auto)
 	for (int y = 1; y < SCREEN_HEIGHT - 1; y++)
 	{
@@ -620,6 +622,7 @@ void CalculateDOF()
 			vec3 finalColour(0.0f,0.0f,0.0f);
 			if(DOF_ENABLED)
 			{
+				// Start from top left of kernel
 				for(int z = ceil(DOF_KERNEL_SIZE / -2.0f); z < ceil(DOF_KERNEL_SIZE / 2.0f); z++)
 				{
 					for(int z2 = ceil(DOF_KERNEL_SIZE / -2.0f); z2 < ceil(DOF_KERNEL_SIZE / 2.0f); z2++)
@@ -630,7 +633,7 @@ void CalculateDOF()
 						else
 							weighting = min(abs(focalDistances[y*SCREEN_HEIGHT+x]), 1.0f) * (1.0f / totalPixels);
 
-
+						// Add contribution to final pixel colour
 						finalColour += pixelColours[(y+z)*SCREEN_HEIGHT+(x+z2)] * weighting;
 					}
 				}
