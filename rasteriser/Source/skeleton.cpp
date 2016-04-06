@@ -39,6 +39,9 @@ bool MULTITHREADING_ENABLED = false;
 int NUM_THREADS; // Set by code
 int SAVED_THREADS; // Stores thread value when changed
 
+bool AA_ENABLED = false;
+int AA_SAMPLES = 3;
+
 /* KEY STATES                                                                  */
 bool AA_key_pressed = false;
 bool shadows_key_pressed = false;
@@ -67,7 +70,6 @@ void PixelShader( const Pixel& p , vec3 color, vec3 normal);
 int main( int argc, char* argv[] )
 {
 	screen = InitializeSDL( SCREEN_WIDTH, SCREEN_HEIGHT );
-	t = SDL_GetTicks();	// Set start value for timer.
 
 	// Generate the Cornell Box
 	LoadTestModel( triangles );
@@ -93,6 +95,11 @@ int main( int argc, char* argv[] )
     }
     else
     	omp_set_num_threads(1);
+
+    if(AA_ENABLED)
+		cout << "Antialiasing enabled with samples: " << AA_SAMPLES << endl;
+
+	t = SDL_GetTicks();	// Set start value for timer.
 
 	while( NoQuitMessageSDL() )
 	{
@@ -146,6 +153,40 @@ void Update()
 	}
 	else if (!keystate[SDLK_4])
 		OMP_key_pressed = false;
+
+	if(!thread_subtract_key_pressed && keystate[SDLK_5])
+	{
+		NUM_THREADS--;
+		SAVED_THREADS = NUM_THREADS;
+		omp_set_num_threads(NUM_THREADS);
+		cout << "Threads decreased to " << NUM_THREADS << endl;
+		thread_subtract_key_pressed = true;
+		isUpdated = true;
+	}
+	else if (!keystate[SDLK_5])
+		thread_subtract_key_pressed = false;
+
+	if(!thread_add_key_pressed && keystate[SDLK_6])
+	{
+		NUM_THREADS++;
+		SAVED_THREADS = NUM_THREADS;
+		omp_set_num_threads(NUM_THREADS);
+		cout << "Threads increased to " << NUM_THREADS << endl;
+		thread_add_key_pressed = true;
+		isUpdated = true;
+	}
+	else if (!keystate[SDLK_6])
+		thread_add_key_pressed = false;
+
+	if(!AA_key_pressed && keystate[SDLK_7])
+	{
+		AA_ENABLED = !AA_ENABLED;
+		cout << "Antialiasing toggled to " << AA_ENABLED << endl;
+		AA_key_pressed = true;
+		isUpdated = true;
+	}
+	else if (!keystate[SDLK_7])
+		AA_key_pressed = false;
 
 	if( keystate[SDLK_UP] )
 	{
@@ -208,6 +249,13 @@ void Draw()
 {
 	if( SDL_MUSTLOCK(screen) )
 		SDL_LockSurface(screen);
+
+	int realSamples; // Number of AA samples to use. Set to 1 if AA is disabled
+
+	if(AA_ENABLED)
+		realSamples = AA_SAMPLES;
+	else
+		realSamples = 1;
 
 	currentReflectance = vec3(1.0f,1.0f,1.0f);
 
