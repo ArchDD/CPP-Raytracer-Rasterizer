@@ -20,11 +20,9 @@ const int SCREEN_WIDTH = 500;
 const int SCREEN_HEIGHT = 500;
 SDL_Surface* screen;
 int t;
-/*float focalLength = 250.0f;
+float focalLength = 250.0f;
 
-vec3 cameraPos( 0, 0, -2.0f );*/
-float focalLength = 1000.0f;
-vec3 cameraPos( 0, 0, -5.0f);
+vec3 cameraPos( 0, 0, -2.0f );
 mat3 cameraRot = mat3(0.0f);
 float yaw = 0; // Yaw angle controlling camera rotation around y-axis
 
@@ -56,6 +54,12 @@ bool backface_key_pressed = false;
 vector<Triangle> triangles;
 vector<Triangle> activeTriangles;
 Frustum frustum;
+float minX = -numeric_limits<float>::max();
+float minY = minX;
+float minZ = minX;
+float maxX = +numeric_limits<float>::max();
+float maxY = maxX;
+float maxZ = maxX;
 
 void Update();
 void Draw();
@@ -68,6 +72,8 @@ void DrawRows( const vector<Pixel>& leftPixels, const vector<Pixel>& rightPixels
 void DrawPolygon( const vector<Vertex>& vertices , vec3 color, vec3 normal);
 void PixelShader( const Pixel& p , vec3 color, vec3 normal);
 bool InFrustum(vec3 v);
+bool InClippingVolume(vec3 v);
+
 
 int main( int argc, char* argv[] )
 {
@@ -288,8 +294,94 @@ void Update()
 				}
 				else
 					triangles[i].isCulled = false;
+
+				// Cull when all vertices are behind
+				vec3 v0 = normalize(triangles[i].v0 - cameraPos);
+				vec3 v1 = normalize(triangles[i].v1 - cameraPos);
+				vec3 v2 = normalize(triangles[i].v2 - cameraPos);
+
+				float d0 = dot(v0, forward);
+				float d1 = dot(v1, forward);
+				float d2 = dot(v2, forward);
+				if (d0 < 0.6f && d1 < 0.6f && d2 < 0.6f)
+				{
+					triangles[i].isCulled = true; printf("ya");
+				}
+
+				/*if (i == 0)
+					printf("%f %f %f\n", d0, d1, d2);*/
 			}
 		}
+
+		// Calculate clipping volume
+		/*vec3 dTopLeft(-SCREEN_WIDTH/2.0f, -SCREEN_HEIGHT/2.0f, focalLength);
+		vec3 dTopRight(SCREEN_WIDTH/2.0f, -SCREEN_HEIGHT/2.0f, focalLength);
+		vec3 dBottomLeft(-SCREEN_WIDTH/2.0f, SCREEN_HEIGHT/2.0f, focalLength);
+		vec3 dBottomRight(SCREEN_WIDTH/2.0f, SCREEN_HEIGHT/2.0f, focalLength);
+		float near = 1.0f, far = 10.0f;
+		vec3 nearTopLeft = cameraPos+(normalize(dTopLeft*cameraRot)*near);
+		vec3 nearTopRight = cameraPos+(normalize(dTopRight*cameraRot)*near);
+		vec3 nearBottomLeft = cameraPos+(normalize(dBottomLeft*cameraRot)*near);
+		vec3 nearBottomRight = cameraPos+(normalize(dBottomRight*cameraRot)*near);
+
+		vec3 farTopLeft = cameraPos+(normalize(dTopLeft*cameraRot)*far);
+		vec3 farTopRight = cameraPos+(normalize(dTopRight*cameraRot)*far);
+		vec3 farBottomLeft = cameraPos+(normalize(dBottomLeft*cameraRot)*far);
+		vec3 farBottomRight = cameraPos+(normalize(dBottomRight*cameraRot)*far);
+
+		float nearMaxX = max(nearTopLeft.x, max(nearTopRight.x, max(nearBottomLeft.x, nearBottomRight.x)));
+		float nearMaxY = max(nearTopLeft.y, max(nearTopRight.y, max(nearBottomLeft.y, nearBottomRight.y)));
+		float nearMaxZ = max(nearTopLeft.z, max(nearTopRight.z, max(nearBottomLeft.z, nearBottomRight.z)));
+
+		float farMaxX = max(farTopLeft.x, max(farTopRight.x, max(farBottomLeft.x, farBottomRight.x)));
+		float farMaxY = max(farTopLeft.y, max(farTopRight.y, max(farBottomLeft.y, farBottomRight.y)));
+		float farMaxZ = max(farTopLeft.z, max(farTopRight.z, max(farBottomLeft.z, farBottomRight.z)));
+
+		float nearMinX = min(nearTopLeft.x, min(nearTopRight.x, min(nearBottomLeft.x, nearBottomRight.x)));
+		float nearMinY = min(nearTopLeft.y, min(nearTopRight.y, min(nearBottomLeft.y, nearBottomRight.y)));
+		float nearMinZ = min(nearTopLeft.z, min(nearTopRight.z, min(nearBottomLeft.z, nearBottomRight.z)));
+
+		float farMinX = min(farTopLeft.x, min(farTopRight.x, min(farBottomLeft.x, farBottomRight.x)));
+		float farMinY = min(farTopLeft.y, min(farTopRight.y, min(farBottomLeft.y, farBottomRight.y)));
+		float farMinZ = min(farTopLeft.z, min(farTopRight.z, min(farBottomLeft.z, farBottomRight.z)));
+
+		maxX = max(nearMaxX, farMaxX);
+		maxY = max(nearMaxY, farMaxY);
+		maxZ = max(nearMaxZ, farMaxZ);
+
+		minX = min(nearMinX, farMinX);
+		minY = min(nearMinY, farMinY);
+		minZ = min(nearMinZ, farMinZ);
+		// If in clipping volume
+		for( size_t i = 0; i < triangles.size(); ++i )
+		{
+			vec3 v0 = triangles[i].v0;
+			vec3 v1 = triangles[i].v1;
+			vec3 v2 = triangles[i].v2;
+
+			if (InClippingVolume(triangles[i].v0) && InClippingVolume(triangles[i].v1) && InClippingVolume(triangles[i].v2))
+			{
+				triangles[i].isCulled = false;
+			}
+			else
+			{
+				triangles[i].isCulled = true;
+				//printf("ay\n");exit(0);
+			}
+		}*/
+
+		// perspective transform
+		glm::mat4 perspective = glm::mat4(0.0f);
+
+		perspective[0][0] = 2.0f/float(SCREEN_WIDTH);
+		perspective[1][1] = 2.0f/float(SCREEN_HEIGHT);
+		perspective[2][2] = 1.0f/float(focalLength);
+		perspective[3][3] = 1.0f;
+		
+		perspective[0][0] = 2.0f/float(SCREEN_WIDTH);
+		perspective[1][1] = 2.0f/float(SCREEN_HEIGHT);
+		perspective[2][2] = 1.0f/float(focalLength);
+		perspective[3][3] = 1.0f;
 	}
 }
 
@@ -301,6 +393,16 @@ bool InFrustum(vec3 v)
 		v.y < frustum.nearTopLeft.y && v.y < frustum.farTopLeft.y &&
 		v.z < frustum.farTopLeft.z && v.z > frustum.nearTopLeft.z
 		)
+	{
+		return true;
+	}
+
+	return false;
+}
+
+bool InClippingVolume(vec3 v)
+{
+	if (v.x >= minX && v.x <= maxX && v.y >= minY && v.y <= maxY && v.z >= minZ && v.z <= maxZ)
 	{
 		return true;
 	}
@@ -342,26 +444,29 @@ void VertexShader( const Vertex& v, Pixel& p )
 	vec3 pos = (v.position - cameraPos) * cameraRot;
 
 	// prevent dividing by 0
-	if(pos.z < 0.01f)
-		pos.z = 0.01f;
-	// Store the 3D position of the vertex in the pixel. Divide by the Z value so the value interpolates correctly over the perspective
-	p.pos3d = pos / pos.z;
+	/*if(pos.z < 0.01f)
+		pos.z = 0.01f;*/
+	if (pos.z > 0.0f)
+	{
+		// Store the 3D position of the vertex in the pixel. Divide by the Z value so the value interpolates correctly over the perspective
+		p.pos3d = pos / pos.z;
 
-	// Calculate depth of pixel, inversed so the value interpolates correctly over the perspective
-	p.zinv = 1.0f / pos.z;
+		// Calculate depth of pixel, inversed so the value interpolates correctly over the perspective
+		p.zinv = 1.0f / pos.z;
 
-	// Calculate 2D screen position and place (0,0) at top left of the screen
-	p.x = int(focalLength * (pos.x * p.zinv)) + (SCREEN_WIDTH / 2.0f);
-	p.y = int(focalLength * (pos.y * p.zinv)) + (SCREEN_HEIGHT / 2.0f);
+		// Calculate 2D screen position and place (0,0) at top left of the screen
+		p.x = int(focalLength * (pos.x * p.zinv)) + (SCREEN_WIDTH / 2.0f);
+		p.y = int(focalLength * (pos.y * p.zinv)) + (SCREEN_HEIGHT / 2.0f);
 
-	if (p.x > SCREEN_WIDTH)
-		p.x = SCREEN_WIDTH;
-	else if (p.x < 0)
-		p.x = 0;
-	if (p.y > SCREEN_HEIGHT)
-		p.y = SCREEN_HEIGHT;
-	else if (p.y < 0)
-		p.y = 0;
+		/*if (p.x > SCREEN_WIDTH)
+			p.x = SCREEN_WIDTH;
+		else if (p.x < 0)
+			p.x = 0;
+		if (p.y > SCREEN_HEIGHT)
+			p.y = SCREEN_HEIGHT;
+		else if (p.y < 0)
+			p.y = 0;*/
+	}
 }
 
 // Calculate per pixel lighting
