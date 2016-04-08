@@ -252,7 +252,7 @@ void Update()
 		backface_key_pressed = true;
 		isUpdated = true;
 	}
-	else if (!keystate[SDLK_8])
+	else if (!keystate[SDLK_7])
 		backface_key_pressed = false;
 
 	if(!frustum_key_pressed && keystate[SDLK_8])
@@ -272,7 +272,7 @@ void Update()
 		frustum_key_pressed = true;
 		isUpdated = true;
 	}
-	else if (!keystate[SDLK_7])
+	else if (!keystate[SDLK_8])
 		frustum_key_pressed = false;
 
 	if(!add_light_key_pressed && keystate[SDLK_2])
@@ -382,7 +382,7 @@ void Update()
 		cameraRot[2][0] = -s;
 		cameraRot[2][2] = c;
 
-		float near = 0.5f, far = 10.0f;
+		float near = 3.0f, far = 15.0f;
 		float w = (float)SCREEN_WIDTH, h = (float)SCREEN_HEIGHT;
 
 		// Viewport vertices
@@ -468,7 +468,7 @@ void Update()
 				bool bv2 = InCuboid(tv2);
 
 				// Determine culling
-				if (bv0 && bv1 && bv2)
+				if (bv0 || bv1 || bv2)
 					triangles[i].isCulled = false;
 				else
 					triangles[i].isCulled = true;
