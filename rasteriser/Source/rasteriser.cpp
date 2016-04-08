@@ -11,6 +11,8 @@ using glm::vec3;
 using glm::mat3;
 using glm::vec2;
 using glm::ivec2;
+using glm::vec4;
+using glm::mat4;
 
 /* ----------------------------------------------------------------------------*/
 /* GLOBAL VARIABLES                                                            */
@@ -45,6 +47,7 @@ int NUM_THREADS; // Set by code
 int SAVED_THREADS; // Stores thread value when changed
 
 bool BACKFACE_CULLING_ENABLED = false;
+bool FRUSTUM_CULLING_ENABLED = false;
 
 bool DOF_ENABLED = false;
 int DOF_KERNEL_SIZE = 8;
@@ -55,6 +58,7 @@ bool OMP_key_pressed = false;
 bool thread_add_key_pressed = false;
 bool thread_subtract_key_pressed = false;
 bool backface_key_pressed = false;
+bool frustum_key_pressed = false;
 bool delete_light_key_pressed = false;
 bool add_light_key_pressed = false;
 bool DOF_key_pressed = false;
@@ -63,12 +67,19 @@ bool DOF_key_pressed = false;
 /* FUNCTIONS                                                                   */
 vector<Triangle> triangles;
 vector<Triangle> activeTriangles;
-Frustum frustum;
 
 // Depth of field data containers
 float focalDistances[SCREEN_WIDTH * SCREEN_HEIGHT];
 vec3 pixelColours[SCREEN_WIDTH * SCREEN_HEIGHT];
 vec3 blurredPixels[SCREEN_WIDTH * SCREEN_HEIGHT];
+
+// Clipping volume bounds
+float minX = -numeric_limits<float>::max();
+float minY = minX;
+float minZ = minX;
+float maxX = +numeric_limits<float>::max();
+float maxY = maxX;
+float maxZ = maxX;
 
 void Update();
 void Draw();
@@ -80,11 +91,11 @@ void ComputePolygonRows( const vector<Pixel>& vertexPixels, vector<Pixel>& leftP
 void DrawRows( const vector<Pixel>& leftPixels, const vector<Pixel>& rightPixels , vec3 color, vec3 normal);
 void DrawPolygon( const vector<Vertex>& vertices , vec3 color, vec3 normal);
 void PixelShader( const Pixel& p , vec3 color, vec3 normal);
-bool InFrustum(vec3 v);
 void AddLight(vec3 position, vec3 color, float intensity);
 void DeleteLight();
 float RandomNumber();
 void CalculateDOF();
+bool InCuboid(vec4 v);
 
 int main( int argc, char* argv[] )
 {
@@ -241,10 +252,30 @@ void Update()
 		backface_key_pressed = true;
 		isUpdated = true;
 	}
-	else if (!keystate[SDLK_7])
+	else if (!keystate[SDLK_8])
 		backface_key_pressed = false;
 
-		if(!add_light_key_pressed && keystate[SDLK_2])
+	if(!frustum_key_pressed && keystate[SDLK_8])
+	{
+		if(FRUSTUM_CULLING_ENABLED)
+		{
+			FRUSTUM_CULLING_ENABLED = false;
+			// Reactive all triangles
+			for( size_t i = 0; i < triangles.size(); ++i )
+			{
+				triangles[i].isCulled = false;
+			}
+		}
+		else
+			FRUSTUM_CULLING_ENABLED = true;
+		cout << "Frustum culling toggled " << endl;
+		frustum_key_pressed = true;
+		isUpdated = true;
+	}
+	else if (!keystate[SDLK_7])
+		frustum_key_pressed = false;
+
+	if(!add_light_key_pressed && keystate[SDLK_2])
 	{
 		AddLight(vec3(RandomNumber() * 2.0f, RandomNumber() * 2.0f, RandomNumber() * 2.0f),vec3(abs(RandomNumber()) * 2.0f + 0.2f,abs(RandomNumber()) * 2.0f + 0.2f,abs(RandomNumber()) * 2.0f + 0.2f),abs(RandomNumber()) * 20.0f);
 		cout << "Spawned a light" << endl;
@@ -351,31 +382,59 @@ void Update()
 		cameraRot[2][0] = -s;
 		cameraRot[2][2] = c;
 
-#ifdef FRUSTUM
-		// Calculate frustum volume
-		vec3 near = cameraPos + 0.1f*forward;
-		vec3 far = cameraPos + 10.0f*forward;
-		frustum.nearTopLeft = near*(-SCREEN_WIDTH/2.0f)/focalLength;
-		frustum.nearTopRight = near*(SCREEN_WIDTH/2.0f)/focalLength;
-		frustum.nearBottomLeft = near*(-SCREEN_HEIGHT/2.0f)/focalLength;
-		frustum.nearBottomRight = near*(SCREEN_HEIGHT/2.0f)/focalLength;
-		frustum.farTopLeft = far*(-SCREEN_WIDTH/2.0f)/focalLength;
-		frustum.farTopRight = far*(SCREEN_WIDTH/2.0f)/focalLength;
-		frustum.farBottomLeft = far*(-SCREEN_HEIGHT/2.0f)/focalLength;
-		frustum.farBottomRight = far*(SCREEN_HEIGHT/2.0f)/focalLength;
+		float near = 0.5f, far = 10.0f;
+		float w = (float)SCREEN_WIDTH, h = (float)SCREEN_HEIGHT;
+
+		// Viewport vertices
+		vec3 tl(-w/2.0f, -h/2.0f, focalLength);
+		vec3 tr(w/2.0f, -h/2.0f, focalLength);
+		vec3 bl(-w/2.0f, h/2.0f, focalLength);
+		vec3 br(w/2.0f, h/2.0f, focalLength);
+
+		// Transform to camera co-ordinates
+		tl = (tl-cameraPos)*cameraRot;
+		tr = (tr-cameraPos)*cameraRot;
+		bl = (bl-cameraPos)*cameraRot;
+		br = (br-cameraPos)*cameraRot;
+
+		// Homogeneous co-ordinates
+		vec4 ntl(tl.x, tl.y, tl.z, 1.0f);
+		vec4 ntr(tr.x, tr.y, tr.z, 1.0f);
+		vec4 nbl(bl.x, bl.y, bl.z, 1.0f);
+		vec4 nbr(br.x, br.y, br.z, 1.0f);
+
+		// Perspective matrix transformation
+		mat4 transform = glm::mat4(0.0f);
+		// fovy version
+		vec3 a(0.0f, tl.y, focalLength);
+		vec3 b(0.0f, bl.y, focalLength);
+		float cy = dot(a,b)/(glm::length(a)*glm::length(b));
+		float rfovy = acos(cy);
+		float fovy = (180.0f/M_PI)*rfovy;
+		float aspect = w/h;
+		transform[0][0] = (1/tan(rfovy/2))/aspect;
+		transform[1][1] = (1/tan(rfovy/2));
+		transform[2][2] = far/(far-near);
+		transform[3][2] = near*far/(far-near);
+		transform[3][2] = 1.0f;
+
+		// Form cuboid clipping volume
+		vec4 cntl = ntl*transform;
+		vec4 cntr = ntr*transform;
+		vec4 cnbl = nbl*transform;
+		vec4 cnbr = nbr*transform;
+
+		minX = cntl.x;
+		maxX = cntr.x;
+		minY = cntl.y;
+		maxY = cnbl.y;
+		minZ = near;
+		maxZ = far;
 
 		for( size_t i = 0; i < triangles.size(); ++i )
 		{
-			if (InFrustum(triangles[i].v0) && InFrustum(triangles[i].v1) && InFrustum(triangles[i].v2))
-				triangles[i].isCulled = true;
-			else
-				triangles[i].isCulled = false;
-		}
-#endif
-		// Backface culling
-		if (BACKFACE_CULLING_ENABLED)
-		{
-			for( size_t i = 0; i < triangles.size(); ++i )
+			// Backface culling
+			if (BACKFACE_CULLING_ENABLED)
 			{
 				if (dot(forward,triangles[i].normal) > 0.8f)
 				{
@@ -384,24 +443,49 @@ void Update()
 				else
 					triangles[i].isCulled = false;
 			}
+
+			if (FRUSTUM_CULLING_ENABLED)
+			{
+				// Get every vertex of triangle to camera space
+				vec3 v0 = triangles[i].v0;
+				vec3 v1 = triangles[i].v1;
+				vec3 v2 = triangles[i].v2;
+
+				v0 = (v0-cameraPos)*cameraRot;
+				v1 = (v1-cameraPos)*cameraRot;
+				v2 = (v2-cameraPos)*cameraRot;
+
+				// Map to clipping space
+				vec4 tv0 = glm::vec4(v0.x, v0.y, v0.z, 1.0f);
+				vec4 tv1 = glm::vec4(v1.x, v1.y, v1.z, 1.0f);
+				vec4 tv2 = glm::vec4(v2.x, v2.y, v2.z, 1.0f);
+				tv0 = tv0*transform;
+				tv1 = tv1*transform;
+				tv2 = tv2*transform;
+
+				bool bv0 = InCuboid(tv0);
+				bool bv1 = InCuboid(tv1);
+				bool bv2 = InCuboid(tv2);
+
+				// Determine culling
+				if (bv0 && bv1 && bv2)
+					triangles[i].isCulled = false;
+				else
+					triangles[i].isCulled = true;
+			}
 		}
 	}
 }
 
-bool InFrustum(vec3 v)
+bool InCuboid(glm::vec4 v)
 {
-	if (v.x < frustum.nearTopRight.x && v.x < frustum.farTopRight.x &&
-		v.x > frustum.nearTopLeft.x && v.x > frustum.farTopLeft.x &&
-		v.y < frustum.nearBottomLeft.y && v.y < frustum.farBottomLeft.y &&
-		v.y < frustum.nearTopLeft.y && v.y < frustum.farTopLeft.y &&
-		v.z < frustum.farTopLeft.z && v.z > frustum.nearTopLeft.z
-		)
+	if (v.x >= minX && v.x <= maxX && v.y >= minY && v.y <= maxY && v.z >= minZ && v.z <= maxZ)
 	{
 		return true;
 	}
-
 	return false;
 }
+
 
 void Draw()
 {
@@ -488,9 +572,6 @@ void VertexShader( const Vertex& v, Pixel& p )
 	// We need to adjust the vertex positions based on the camera position and rotation
 	vec3 pos = (v.position - cameraPos) * cameraRot;
 
-	// prevent dividing by 0
-	if(pos.z < 0.01f)
-		pos.z = 0.01f;
 	// Store the 3D position of the vertex in the pixel. Divide by the Z value so the value interpolates correctly over the perspective
 	p.pos3d = pos / pos.z;
 
@@ -500,15 +581,6 @@ void VertexShader( const Vertex& v, Pixel& p )
 	// Calculate 2D screen position and place (0,0) at top left of the screen
 	p.x = int(focalLength * (pos.x * p.zinv)) + (SCREEN_WIDTH / 2.0f);
 	p.y = int(focalLength * (pos.y * p.zinv)) + (SCREEN_HEIGHT / 2.0f);
-
-	if (p.x > SCREEN_WIDTH)
-		p.x = SCREEN_WIDTH;
-	else if (p.x < 0)
-		p.x = 0;
-	if (p.y > SCREEN_HEIGHT)
-		p.y = SCREEN_HEIGHT;
-	else if (p.y < 0)
-		p.y = 0;
 }
 
 // Calculate per pixel lighting
