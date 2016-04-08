@@ -16,7 +16,7 @@ using glm::ivec2;
 /* GLOBAL VARIABLES                                                            */
 
 //#define FRUSTUM // Uncomment this for naive frustum culling
-#define CUSTOM_MODEL
+//#define CUSTOM_MODEL
 
 const int SCREEN_WIDTH = 500;
 const int SCREEN_HEIGHT = 500;
@@ -46,6 +46,10 @@ int SAVED_THREADS; // Stores thread value when changed
 
 bool BACKFACE_CULLING_ENABLED = false;
 
+bool DOF_ENABLED = false;
+int DOF_KERNEL_SIZE = 8;
+float FOCAL_LENGTH = 1.3f;
+
 /* KEY STATES                                                                  */
 bool OMP_key_pressed = false;
 bool thread_add_key_pressed = false;
@@ -53,12 +57,18 @@ bool thread_subtract_key_pressed = false;
 bool backface_key_pressed = false;
 bool delete_light_key_pressed = false;
 bool add_light_key_pressed = false;
+bool DOF_key_pressed = false;
 
 /* ----------------------------------------------------------------------------*/
 /* FUNCTIONS                                                                   */
 vector<Triangle> triangles;
 vector<Triangle> activeTriangles;
 Frustum frustum;
+
+// Depth of field data containers
+float focalDistances[SCREEN_WIDTH * SCREEN_HEIGHT];
+vec3 pixelColours[SCREEN_WIDTH * SCREEN_HEIGHT];
+vec3 blurredPixels[SCREEN_WIDTH * SCREEN_HEIGHT];
 
 void Update();
 void Draw();
@@ -74,6 +84,7 @@ bool InFrustum(vec3 v);
 void AddLight(vec3 position, vec3 color, float intensity);
 void DeleteLight();
 float RandomNumber();
+void CalculateDOF();
 
 int main( int argc, char* argv[] )
 {
@@ -257,6 +268,31 @@ void Update()
 		delete_light_key_pressed = false;
 	}
 
+	if(!DOF_key_pressed && keystate[SDLK_9])
+	{
+		DOF_ENABLED = !DOF_ENABLED;
+		cout << "Depth of Field toggled to " << DOF_ENABLED << endl;
+		DOF_key_pressed = true;
+		isUpdated = true;
+	}
+	else if (!keystate[SDLK_9])
+	{
+		DOF_key_pressed = false;
+	}
+
+	if (keystate[SDLK_RIGHTBRACKET])
+	{
+		FOCAL_LENGTH += 0.1f;
+		cout << "Focal length is " << FOCAL_LENGTH << endl;
+		isUpdated = true;
+	}
+	else if (keystate[SDLK_LEFTBRACKET])
+	{
+		FOCAL_LENGTH -= 0.1f;
+		cout << "Focal length is " << FOCAL_LENGTH << endl;
+		isUpdated = true;
+	}
+
 	if( keystate[SDLK_UP] )
 	{
 		// Move camera forward
@@ -387,10 +423,57 @@ void Draw()
 		}
 	}
 
+	CalculateDOF();
+}
+
+void CalculateDOF()
+{
+	if( SDL_MUSTLOCK(screen) )
+		SDL_LockSurface(screen);
+
+	// Total number of pixels in the kernel
+	float totalPixels = DOF_KERNEL_SIZE * DOF_KERNEL_SIZE;
+
+	// Spawn threads
+	#pragma omp parallel for schedule(auto)
+	for (int y = 1; y < SCREEN_HEIGHT - 1; y++)
+	{
+		for (int x = 1; x < SCREEN_WIDTH - 1; x++)
+		{
+			vec3 finalColour(0.0f,0.0f,0.0f);
+			if(DOF_ENABLED)
+			{
+				// Start from top left of kernel
+				for(int z = ceil(DOF_KERNEL_SIZE / -2.0f); z < ceil(DOF_KERNEL_SIZE / 2.0f); z++)
+				{
+					for(int z2 = ceil(DOF_KERNEL_SIZE / -2.0f); z2 < ceil(DOF_KERNEL_SIZE / 2.0f); z2++)
+					{
+						float weighting;
+						if(z == 0 && z2 == 0)
+							weighting = 1 - (min(abs(focalDistances[y*SCREEN_HEIGHT+x]), 1.0f) * ((totalPixels - 1) / totalPixels) );
+						else
+							weighting = min(abs(focalDistances[y*SCREEN_HEIGHT+x]), 1.0f) * (1.0f / totalPixels);
+
+						// Add contribution to final pixel colour
+						finalColour += pixelColours[(y+z)*SCREEN_HEIGHT+(x+z2)] * weighting;
+					}
+				}
+			}
+			else
+			{
+				finalColour = pixelColours[y*SCREEN_HEIGHT+x];
+			}
+
+			PutPixelSDL( screen, x, y, finalColour );
+		}
+	}
+
 	if( SDL_MUSTLOCK(screen) )
 		SDL_UnlockSurface(screen);
+		
 
 	SDL_UpdateRect( screen, 0, 0, 0, 0 );
+
 }
 
 // Compute 2D screen position from 3D position
@@ -428,10 +511,13 @@ void PixelShader( const Pixel& p , vec3 color, vec3 normal)
 	int x = p.x;
 	int y = p.y;
 
-	// Multiply pixel 3d position by the z value to get the origin position from the inverse
+	// Multiply pixel 3d position by the z value to get the original position from the inverse
 	vec3 pPos3d(p.pos3d);
 	pPos3d *= p.pos3d.z;
 	vec3 result;
+
+	float distance = glm::distance(pPos3d, cameraPos);
+	focalDistances[p.y*SCREEN_HEIGHT + p.x] = distance - FOCAL_LENGTH;
 
 	for(int i = 0; i < NUM_LIGHTS; i++)
 	{
@@ -450,6 +536,7 @@ void PixelShader( const Pixel& p , vec3 color, vec3 normal)
 
 
 	vec3 pixelColor = currentReflectance * (result + indirectLightPowerPerArea) * color;
+	pixelColours[y*SCREEN_HEIGHT + x] = pixelColor;
 
 	PutPixelSDL( screen, x, y, pixelColor );
 }
