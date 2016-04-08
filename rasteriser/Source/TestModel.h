@@ -65,6 +65,19 @@ public:
 	glm::vec3 farBottomRight;
 };
 
+// Defines light parameters
+class Light
+{
+public:
+	glm::vec3 position;
+	glm::vec3 color;
+	float intensity;
+
+	Light(glm::vec3 position, glm::vec3 color, float intensity)
+	 : position(position), color(color), intensity(intensity){}
+	 Light(){}
+};
+
 // Allows subtraction of the Pixel class
 Pixel operator-(const Pixel &p1, const Pixel &p2)
 {

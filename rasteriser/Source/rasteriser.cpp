@@ -16,17 +16,15 @@ using glm::ivec2;
 /* GLOBAL VARIABLES                                                            */
 
 //#define FRUSTUM // Uncomment this for naive frustum culling
-#define CUSTOM_MODEL
+//#define CUSTOM_MODEL
 
 const int SCREEN_WIDTH = 500;
 const int SCREEN_HEIGHT = 500;
 SDL_Surface* screen;
 int t;
-/*float focalLength = 250.0f;
+float focalLength = 500.0f;
 
-vec3 cameraPos( 0, 0, -2.0f );*/
-float focalLength = 1000.0f;
-vec3 cameraPos( 0, 0, -5.0f);
+vec3 cameraPos( 0, 0, -3.0f );
 mat3 cameraRot = mat3(0.0f);
 float yaw = 0; // Yaw angle controlling camera rotation around y-axis
 
