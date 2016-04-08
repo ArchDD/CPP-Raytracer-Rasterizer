@@ -16,7 +16,7 @@ using glm::ivec2;
 /* GLOBAL VARIABLES                                                            */
 
 //#define FRUSTUM // Uncomment this for naive frustum culling
-//#define CUSTOM_MODEL
+#define CUSTOM_MODEL
 
 const int SCREEN_WIDTH = 500;
 const int SCREEN_HEIGHT = 500;
@@ -158,6 +158,7 @@ void Update()
 	cout << "Render time: " << dt << " ms." << endl;
 
 	// Clear the screen before drawing the next frame
+	#pragma omp parallel for schedule(auto)
 	for( int y=0; y<SCREEN_HEIGHT; ++y )
 	{
 		for( int x=0; x<SCREEN_WIDTH; ++x )
@@ -373,7 +374,6 @@ void Draw()
 
 	currentReflectance = vec3(1.0f,1.0f,1.0f);
 
-	#pragma omp parallel for schedule(dynamic)
 	for( size_t i = 0; i < triangles.size(); ++i )
 	{
 		if (!triangles[i].isCulled)
@@ -473,6 +473,8 @@ void DrawLineSDL( SDL_Surface* surface, Pixel a, Pixel b, vec3 color, vec3 norma
 
 	Breshenham(a,b,line);
 
+	// Spawn threads
+	#pragma omp parallel for schedule(auto)
 	for(int i = 0; i < pixels; ++i)
 	{
 		// Ensure pixel is on the screen and is closer to the camera than the current value in the depth buffer
