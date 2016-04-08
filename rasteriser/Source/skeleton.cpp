@@ -325,8 +325,9 @@ void Update()
 		vec3 dTopRight(300-SCREEN_WIDTH/2.0f, 200-SCREEN_HEIGHT/2.0f, focalLength);
 		vec3 dBottomLeft(200-SCREEN_WIDTH/2.0f, 300-SCREEN_HEIGHT/2.0f, focalLength);
 		vec3 dBottomRight(300-SCREEN_WIDTH/2.0f, 300-SCREEN_HEIGHT/2.0f, focalLength);*/
-		//float near = focalLength/focalLength, far = focalLength*1.0f;
-		float near = 1.0f/focalLength, far = 10.0f/focalLength;
+		//float near = focalLength/focalLength, far = focalLength+3.0f;
+		//float near = 1.0f/focalLength, far = 10.0f/focalLength;
+		float near = 1.0f/focalLength, far = 3.0f/focalLength;
 		vec3 nearTopLeft = cameraPos+((cameraRot*dTopLeft)*near);
 		vec3 nearTopRight = cameraPos+((cameraRot*dTopRight)*near);
 		vec3 nearBottomLeft = cameraPos+((cameraRot*dBottomLeft)*near);
@@ -372,30 +373,40 @@ void Update()
 		glm::vec4 fbl(farBottomLeft.x, farBottomLeft.y, farBottomLeft.z, 1.0f);
 		glm::vec4 fbr(farBottomRight.x, farBottomRight.y, farBottomRight.z, 1.0f);
 
-		pyramid[0][0] = 2.0f/(ntr.x-ntl.x);
+		/*pyramid[0][0] = 2.0f/(ntr.x-ntl.x);
 		pyramid[1][1] = -2.0f/(ntl.y-nbl.y);
 		pyramid[2][2] = far/(far - near);
 		pyramid[3][2] = (-far*near)/(far - near);
-		pyramid[2][3] = -1.0f;
+		pyramid[2][3] = -1.0f;*/
 
-		pyramid = glm::transpose(pyramid);
+		/*pyramid[0][0] = 2.0f*ntr.z/(ntr.x-ntl.x);
+		pyramid[1][1] = -2.0f*ntr.z/(ntl.y-nbl.y);
+		pyramid[2][2] = ftr.z/(ftr.z - ntr.z);
+		pyramid[3][2] = (-ftr.z*ntr.z)/(ftr.z - ntr.z);
+		pyramid[2][3] = -1.0f;*/
 
-		/*glm::vec4 cntl = (ntl*pyramid)*cuboid;
-		glm::vec4 cntr = (ntr*pyramid)*cuboid;
-		glm::vec4 cnbl = (nbl*pyramid)*cuboid;
-		glm::vec4 cnbr = (nbr*pyramid)*cuboid;
-		glm::vec4 cftl = (ftl*pyramid)*cuboid;
-		glm::vec4 cftr = (ftr*pyramid)*cuboid;
-		glm::vec4 cfbl = (fbl*pyramid)*cuboid;
-		glm::vec4 cfbr = (fbr*pyramid)*cuboid;*/
-		glm::vec4 cntl = (ntl*pyramid);
-		glm::vec4 cntr = (ntr*pyramid);
-		glm::vec4 cnbl = (nbl*pyramid);
-		glm::vec4 cnbr = (nbr*pyramid);
-		glm::vec4 cftl = (ftl*pyramid);
-		glm::vec4 cftr = (ftr*pyramid);
-		glm::vec4 cfbl = (fbl*pyramid);
-		glm::vec4 cfbr = (fbr*pyramid);
+		/*pyramid[0][0] = 2.0f*ntr.z/(ntr.x-ntl.x);
+		pyramid[1][1] = -2.0f*ntr.z/(ntl.y-nbl.y);
+		pyramid[2][2] = ftr.z/(ftr.z - ntr.z);
+		pyramid[3][2] = (-ftr.z*ntr.z)/(ftr.z - ntr.z);
+		pyramid[2][3] = 1.0f;*/
+
+		pyramid[0][0] = 2.0f*ntr.z/(ntr.x-ntl.x);
+		pyramid[1][1] = -2.0f*ntr.z/(ntl.y-nbl.y);
+		pyramid[2][2] = (ftr.z+ntr.z)/(ftr.z - ntr.z);
+		pyramid[3][2] = (-2.0f*ftr.z*ntr.z)/(ftr.z - ntr.z);
+		pyramid[2][3] = 1.0f;
+
+		//pyramid = glm::transpose(pyramid);
+
+		glm::vec4 cntl = (pyramid*ntl);
+		glm::vec4 cntr = (pyramid*ntr);
+		glm::vec4 cnbl = (pyramid*nbl);
+		glm::vec4 cnbr = (pyramid*nbr);
+		glm::vec4 cftl = (pyramid*ftl);
+		glm::vec4 cftr = (pyramid*ftr);
+		glm::vec4 cfbl = (pyramid*fbl);
+		glm::vec4 cfbr = (pyramid*fbr);
 
 		//div z
 		cntl = cntl/cntl[3];
@@ -407,11 +418,7 @@ void Update()
 		cfbl = cfbl/cfbl[3];
 		cfbr = cfbr/cfbr[3];
 
-		printf(".. %f %f %f %f\n", ntr.x-ntl.x, ntr.x-ntl.x, far/(far-near), -(far*near)/(far-near));
-
-		printf("cam x %f y %f z %f\n", cameraPos.x, cameraPos.y, cameraPos.z);
-		printf("norm cam x %f y %f z %f\n", cameraPos.x, cameraPos.y, cameraPos.z);
-		printf("tri[2] x %f y %f z %f\n", triangles[2].v0.x, triangles[2].v0.y, triangles[2].v0.z);
+		printf(".. %f %f %f %f\n", ntr.x-ntl.x, ntl.y-nbl.y, far/(far-near), -(far*near)/(far-near));
 		printf("ntl.x %f ntr.x %f ftl.x %f ftr.x %f\n", ntl.x, ntr.x, ftl.x, ftr.x);
 		printf("cntl.x %f cntr.x %f cftl.x %f cftr.x %f\n", cntl.x, cntr.x, cftl.x, cftr.x);
 		printf("ntl.y %f ntr.y %f ftl.y %f ftr.y %f\n", ntl.y, ntr.y, ftl.y, ftr.y);
@@ -434,19 +441,12 @@ void Update()
 			vec3 v1 = triangles[i].v1;
 			vec3 v2 = triangles[i].v2;
 
-			/*glm::vec4 hv0(v0.x, v0.y, v0.z, 1.0f);
-			glm::vec4 pv0 = (hv0*pyramid)*cuboid;
-			glm::vec4 hv1(v1.x, v1.y, v1.z, 1.0f);
-			glm::vec4 pv1 = (hv1*pyramid)*cuboid;
-			glm::vec4 hv2(v2.x, v2.y, v2.z, 1.0f);
-			glm::vec4 pv2 = (hv2*pyramid)*cuboid;*/
-
 			glm::vec4 hv0(v0.x, v0.y, v0.z, 1.0f);
-			glm::vec4 pv0 = hv0*pyramid;
+			glm::vec4 pv0 = pyramid*hv0;
 			glm::vec4 hv1(v1.x, v1.y, v1.z, 1.0f);
-			glm::vec4 pv1 = hv1*pyramid;
+			glm::vec4 pv1 = pyramid*hv1;
 			glm::vec4 hv2(v2.x, v2.y, v2.z, 1.0f);
-			glm::vec4 pv2 = hv2*pyramid;
+			glm::vec4 pv2 = pyramid*hv2;
 
 
 			//divide by z
@@ -477,13 +477,13 @@ void Update()
 				printf("pv0 %f %f %f\n", pv0.x, pv0.y, pv0.z);
 				printf("pv1 %f %f %f\n", pv1.x, pv1.y, pv1.z);
 				printf("pv2 %f %f %f\n", pv2.x, pv2.y, pv2.z);
-				glm::vec4 norm = glm::vec4(cameraPos.x, cameraPos.y, cameraPos.z, 1.0f)*pyramid;
+				glm::vec4 norm = pyramid*glm::vec4(cameraPos.x, cameraPos.y, cameraPos.z, 1.0f);
 				norm = norm/norm[3];
 				printf("cam x %f y %f z %f\n", cameraPos.x, cameraPos.y, cameraPos.z);
 				printf("norm cam x %f y %f z %f\n", cameraPos.x, cameraPos.y, cameraPos.z);
 				printf("ntl x %f y %f z %f\n", nearTopLeft.x, nearTopLeft.y, nearTopLeft.z);
 				printf("isCulled: %d\n", triangles[i].isCulled);
-				//exit(0);
+				exit(0);
 			}
 		}
 	}
