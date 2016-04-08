@@ -209,48 +209,48 @@ void Update()
 	if( keystate[SDLK_UP] )
 	{
 		// Move camera forward
-		cameraPos += 0.05f*forward;
+		cameraPos += 0.05f*forward*(dt / 20.0f);
 		isUpdated = true;
 	}
 	else if( keystate[SDLK_DOWN] )
 	{
 		// Move camera backward
-		cameraPos -= 0.05f*forward;
+		cameraPos -= 0.05f*forward*(dt / 20.0f);
 		isUpdated = true;
 	}
 	if( keystate[SDLK_LEFT] )
 	{
 		// Rotate camera to the left
-		yaw += 0.0025f;
+		yaw += 0.0025f*(dt / 20.0f);
 		isUpdated = 1;
 	}
 	else if( keystate[SDLK_RIGHT] )
 	{
 		// Rotate camera to the right
-		yaw -= 0.0025f;
+		yaw -= 0.0025f*(dt / 20.0f);
 		isUpdated = true;
 	}
 
 	// Light movement controls
 	if (keystate[SDLK_w])
 	{
-		lightPos.z += 0.05f;
+		lightPos.z += 0.05f*(dt / 20.0f);
 		isUpdated = true;
 	}
 	else if (keystate[SDLK_s])
 	{
-		lightPos.z -= 0.05f;
+		lightPos.z -= 0.05f*(dt / 20.0f);
 		isUpdated = true;
 	}
 
 	if (keystate[SDLK_a])
 	{
-		lightPos.x -= 0.05f;
+		lightPos.x -= 0.05f*(dt / 20.0f);
 		isUpdated = true;;
 	}
 	else if (keystate[SDLK_d])
 	{
-		lightPos.x += 0.05f;
+		lightPos.x += 0.05f*(dt / 20.0f);
 		isUpdated = true;
 	}
 
