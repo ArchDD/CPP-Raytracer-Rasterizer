@@ -325,7 +325,8 @@ void Update()
 		vec3 dTopRight(300-SCREEN_WIDTH/2.0f, 200-SCREEN_HEIGHT/2.0f, focalLength);
 		vec3 dBottomLeft(200-SCREEN_WIDTH/2.0f, 300-SCREEN_HEIGHT/2.0f, focalLength);
 		vec3 dBottomRight(300-SCREEN_WIDTH/2.0f, 300-SCREEN_HEIGHT/2.0f, focalLength);*/
-		float near = focalLength/focalLength, far = focalLength*1.0f;
+		//float near = focalLength/focalLength, far = focalLength*1.0f;
+		float near = 1.0f/focalLength, far = 10.0f/focalLength;
 		vec3 nearTopLeft = cameraPos+((cameraRot*dTopLeft)*near);
 		vec3 nearTopRight = cameraPos+((cameraRot*dTopRight)*near);
 		vec3 nearBottomLeft = cameraPos+((cameraRot*dBottomLeft)*near);
@@ -371,7 +372,7 @@ void Update()
 		glm::vec4 fbl(farBottomLeft.x, farBottomLeft.y, farBottomLeft.z, 1.0f);
 		glm::vec4 fbr(farBottomRight.x, farBottomRight.y, farBottomRight.z, 1.0f);
 
-		pyramid[0][0] = -2.0f/(ntr.x-ntl.x);
+		pyramid[0][0] = 2.0f/(ntr.x-ntl.x);
 		pyramid[1][1] = -2.0f/(ntl.y-nbl.y);
 		pyramid[2][2] = far/(far - near);
 		pyramid[3][2] = (-far*near)/(far - near);
@@ -482,7 +483,7 @@ void Update()
 				printf("norm cam x %f y %f z %f\n", cameraPos.x, cameraPos.y, cameraPos.z);
 				printf("ntl x %f y %f z %f\n", nearTopLeft.x, nearTopLeft.y, nearTopLeft.z);
 				printf("isCulled: %d\n", triangles[i].isCulled);
-				exit(0);
+				//exit(0);
 			}
 		}
 	}
@@ -505,7 +506,7 @@ bool InFrustum(vec3 v)
 
 bool InCuboid(glm::vec4 v)
 {
-	if (v.x > minX && v.x < maxX && v.y > minY && v.y < maxY && v.z > minZ && v.z < maxZ)
+	if (v.x >= minX && v.x <= maxX && v.y >= minY && v.y <= maxY && v.z >= minZ && v.z <= maxZ)
 	{
 		return true;
 	}
