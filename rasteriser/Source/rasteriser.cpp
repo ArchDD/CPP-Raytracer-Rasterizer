@@ -423,7 +423,13 @@ void Draw()
 		}
 	}
 
-	CalculateDOF();
+		if( SDL_MUSTLOCK(screen) )
+		SDL_UnlockSurface(screen);
+		
+
+	SDL_UpdateRect( screen, 0, 0, 0, 0 );
+
+	//CalculateDOF();
 }
 
 void CalculateDOF()
@@ -517,7 +523,7 @@ void PixelShader( const Pixel& p , vec3 color, vec3 normal)
 	vec3 result;
 
 	float distance = glm::distance(pPos3d, cameraPos);
-	focalDistances[p.y*SCREEN_HEIGHT + p.x] = distance - FOCAL_LENGTH;
+	//focalDistances[p.y*SCREEN_HEIGHT + p.x] = distance - FOCAL_LENGTH;
 
 	for(int i = 0; i < NUM_LIGHTS; i++)
 	{
@@ -536,7 +542,7 @@ void PixelShader( const Pixel& p , vec3 color, vec3 normal)
 
 
 	vec3 pixelColor = currentReflectance * (result + indirectLightPowerPerArea) * color;
-	pixelColours[y*SCREEN_HEIGHT + x] = pixelColor;
+	//pixelColours[y*SCREEN_HEIGHT + x] = pixelColor;
 
 	PutPixelSDL( screen, x, y, pixelColor );
 }
