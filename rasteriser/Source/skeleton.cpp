@@ -22,7 +22,7 @@ SDL_Surface* screen;
 int t;
 float focalLength = 250.0f;
 
-vec3 cameraPos( 0, 0, -2.0f );
+vec3 cameraPos( 0, 0, -2.5f );
 mat3 cameraRot = mat3(0.0f);
 float yaw = 0; // Yaw angle controlling camera rotation around y-axis
 
@@ -73,6 +73,7 @@ void DrawPolygon( const vector<Vertex>& vertices , vec3 color, vec3 normal);
 void PixelShader( const Pixel& p , vec3 color, vec3 normal);
 bool InFrustum(vec3 v);
 bool InClippingVolume(vec3 v);
+bool InCuboid(glm::vec4 v);
 
 
 int main( int argc, char* argv[] )
@@ -125,6 +126,8 @@ void Update()
 {
 	// Compute frame time:
 	int t2 = SDL_GetTicks();
+
+	//cameraPos.x+=0.05f;isUpdated = true;
 	float dt = float(t2-t);
 	t = t2;
 	cout << "Render time: " << dt << " ms." << endl;
@@ -314,52 +317,139 @@ void Update()
 		}
 
 		// Calculate clipping volume
-		/*vec3 dTopLeft(-SCREEN_WIDTH/2.0f, -SCREEN_HEIGHT/2.0f, focalLength);
-		vec3 dTopRight(SCREEN_WIDTH/2.0f, -SCREEN_HEIGHT/2.0f, focalLength);
+		vec3 dTopLeft(-SCREEN_WIDTH/2.0f, -SCREEN_HEIGHT/2.0f, focalLength);
+		vec3 dTopRight(SCREEN_WIDTH/2.0f, SCREEN_HEIGHT/2.0f, focalLength);
 		vec3 dBottomLeft(-SCREEN_WIDTH/2.0f, SCREEN_HEIGHT/2.0f, focalLength);
 		vec3 dBottomRight(SCREEN_WIDTH/2.0f, SCREEN_HEIGHT/2.0f, focalLength);
-		float near = 1.0f, far = 10.0f;
-		vec3 nearTopLeft = cameraPos+(normalize(dTopLeft*cameraRot)*near);
-		vec3 nearTopRight = cameraPos+(normalize(dTopRight*cameraRot)*near);
-		vec3 nearBottomLeft = cameraPos+(normalize(dBottomLeft*cameraRot)*near);
-		vec3 nearBottomRight = cameraPos+(normalize(dBottomRight*cameraRot)*near);
+		/*vec3 dTopLeft(200-SCREEN_WIDTH/2.0f, 200-SCREEN_HEIGHT/2.0f, focalLength);
+		vec3 dTopRight(300-SCREEN_WIDTH/2.0f, 200-SCREEN_HEIGHT/2.0f, focalLength);
+		vec3 dBottomLeft(200-SCREEN_WIDTH/2.0f, 300-SCREEN_HEIGHT/2.0f, focalLength);
+		vec3 dBottomRight(300-SCREEN_WIDTH/2.0f, 300-SCREEN_HEIGHT/2.0f, focalLength);*/
+		float near = 0.1f/focalLength, far = 100.0/focalLength;
+		vec3 nearTopLeft = cameraPos+((cameraRot*dTopLeft)*near);
+		vec3 nearTopRight = cameraPos+((cameraRot*dTopRight)*near);
+		vec3 nearBottomLeft = cameraPos+((cameraRot*dBottomLeft)*near);
+		vec3 nearBottomRight = cameraPos+((cameraRot*dBottomRight)*near);
 
-		vec3 farTopLeft = cameraPos+(normalize(dTopLeft*cameraRot)*far);
-		vec3 farTopRight = cameraPos+(normalize(dTopRight*cameraRot)*far);
-		vec3 farBottomLeft = cameraPos+(normalize(dBottomLeft*cameraRot)*far);
-		vec3 farBottomRight = cameraPos+(normalize(dBottomRight*cameraRot)*far);
+		vec3 farTopLeft = cameraPos+((cameraRot*dTopLeft)*far);
+		vec3 farTopRight = cameraPos+((cameraRot*dTopRight)*far);
+		vec3 farBottomLeft = cameraPos+((cameraRot*dBottomLeft)*far);
+		vec3 farBottomRight = cameraPos+((cameraRot*dBottomRight)*far);
 
-		float nearMaxX = max(nearTopLeft.x, max(nearTopRight.x, max(nearBottomLeft.x, nearBottomRight.x)));
-		float nearMaxY = max(nearTopLeft.y, max(nearTopRight.y, max(nearBottomLeft.y, nearBottomRight.y)));
-		float nearMaxZ = max(nearTopLeft.z, max(nearTopRight.z, max(nearBottomLeft.z, nearBottomRight.z)));
+		// perspective transform
+		glm::mat4 pyramid = glm::mat4(0.0f);
 
-		float farMaxX = max(farTopLeft.x, max(farTopRight.x, max(farBottomLeft.x, farBottomRight.x)));
-		float farMaxY = max(farTopLeft.y, max(farTopRight.y, max(farBottomLeft.y, farBottomRight.y)));
-		float farMaxZ = max(farTopLeft.z, max(farTopRight.z, max(farBottomLeft.z, farBottomRight.z)));
+		/*pyramid[0][0] = 2.0f/float(SCREEN_WIDTH);
+		pyramid[1][1] = 2.0f/float(SCREEN_HEIGHT);
+		pyramid[2][2] = 1.0f/float(focalLength);
+		pyramid[3][3] = 1.0f;
 
-		float nearMinX = min(nearTopLeft.x, min(nearTopRight.x, min(nearBottomLeft.x, nearBottomRight.x)));
-		float nearMinY = min(nearTopLeft.y, min(nearTopRight.y, min(nearBottomLeft.y, nearBottomRight.y)));
-		float nearMinZ = min(nearTopLeft.z, min(nearTopRight.z, min(nearBottomLeft.z, nearBottomRight.z)));
+		glm::mat4 cuboid = glm::mat4(0.0f);
+		cuboid[0][0] = 1.0f;
+		cuboid[1][1] = 1.0f;
+		cuboid[2][2] = -1.0f;
+		cuboid[2][3] = -1.0f;*/
 
-		float farMinX = min(farTopLeft.x, min(farTopRight.x, min(farBottomLeft.x, farBottomRight.x)));
-		float farMinY = min(farTopLeft.y, min(farTopRight.y, min(farBottomLeft.y, farBottomRight.y)));
-		float farMinZ = min(farTopLeft.z, min(farTopRight.z, min(farBottomLeft.z, farBottomRight.z)));
+		pyramid[0][0] = 2.0f/float(SCREEN_WIDTH);
+		pyramid[1][1] = 2.0f/float(SCREEN_HEIGHT);
+		pyramid[2][2] = 1.0f/(focalLength);
+		//pyramid[3][2] = (-far*near)/(far - near);
+		pyramid[3][3] = 1.0f;
 
-		maxX = max(nearMaxX, farMaxX);
-		maxY = max(nearMaxY, farMaxY);
-		maxZ = max(nearMaxZ, farMaxZ);
+		/*pyramid[0][0] = 2.0f/float(SCREEN_WIDTH);
+		pyramid[1][1] = 2.0f/float(SCREEN_HEIGHT);
+		pyramid[2][2] = 1.0f/(far - near);
+		pyramid[3][2] = (-far*near)/(far - near);
+		pyramid[2][3] = 1.0f;*/
 
-		minX = min(nearMinX, farMinX);
-		minY = min(nearMinY, farMinY);
-		minZ = min(nearMinZ, farMinZ);
-		// If in clipping volume
+		glm::vec4 ntl(nearTopLeft.x, nearTopLeft.y, nearTopLeft.z, 1.0f);
+		glm::vec4 ntr(nearTopRight.x, nearTopRight.y, nearTopRight.z, 1.0f);
+		glm::vec4 nbl(nearBottomLeft.x, nearBottomLeft.y, nearBottomLeft.z, 1.0f);
+		glm::vec4 nbr(nearBottomRight.x, nearBottomRight.y, nearBottomRight.z, 1.0f);
+		glm::vec4 ftl(farTopLeft.x, farTopLeft.y, farTopLeft.z, 1.0f);
+		glm::vec4 ftr(farTopRight.x, farTopRight.y, farTopRight.z, 1.0f);
+		glm::vec4 fbl(farBottomLeft.x, farBottomLeft.y, farBottomLeft.z, 1.0f);
+		glm::vec4 fbr(farBottomRight.x, farBottomRight.y, farBottomRight.z, 1.0f);
+		
+		/*glm::vec4 cntl = (ntl*pyramid)*cuboid;
+		glm::vec4 cntr = (ntr*pyramid)*cuboid;
+		glm::vec4 cnbl = (nbl*pyramid)*cuboid;
+		glm::vec4 cnbr = (nbr*pyramid)*cuboid;
+		glm::vec4 cftl = (ftl*pyramid)*cuboid;
+		glm::vec4 cftr = (ftr*pyramid)*cuboid;
+		glm::vec4 cfbl = (fbl*pyramid)*cuboid;
+		glm::vec4 cfbr = (fbr*pyramid)*cuboid;*/
+		glm::vec4 cntl = (ntl*pyramid);
+		glm::vec4 cntr = (ntr*pyramid);
+		glm::vec4 cnbl = (nbl*pyramid);
+		glm::vec4 cnbr = (nbr*pyramid);
+		glm::vec4 cftl = (ftl*pyramid);
+		glm::vec4 cftr = (ftr*pyramid);
+		glm::vec4 cfbl = (fbl*pyramid);
+		glm::vec4 cfbr = (fbr*pyramid);
+
+		//div z
+		cntl = cntl/cntl[3];
+		cntr = cntr/cntr[3];
+		cnbl = cnbl/cnbl[3];
+		cnbr = cnbr/cnbr[3];
+		cftl = cftl/cftl[3];
+		cftr = cftr/cftr[3];
+		cfbl = cfbl/cfbl[3];
+		cfbr = cfbr/cfbr[3];
+
+		float nMaxX = max(cntl.x, max(cntr.x, max(cnbl.x, cnbr.x)));
+		float nMaxY = max(cntl.y, max(cntr.y, max(cnbl.y, cnbr.y)));
+		float nMaxZ = max(cntl.z, max(cntr.z, max(cnbl.z, cnbr.z)));
+
+		float fMaxX = max(cftl.x, max(cftr.x, max(cfbl.x, cfbr.x)));
+		float fMaxY = max(cftl.y, max(cftr.y, max(cfbl.y, cfbr.y)));
+		float fMaxZ = max(cftl.z, max(cftr.z, max(cfbl.z, cfbr.z)));
+
+		float nMinX = min(cntl.x, min(cntr.x, min(cnbl.x, cnbr.x)));
+		float nMinY = min(cntl.y, min(cntr.y, min(cnbl.y, cnbr.y)));
+		float nMinZ = min(cntl.z, min(cntr.z, min(cnbl.z, cnbr.z)));
+
+		float fMinX = min(cftl.x, min(cftr.x, min(cfbl.x, cfbr.x)));
+		float fMinY = min(cftl.y, min(cftr.y, min(cfbl.y, cfbr.y)));
+		float fMinZ = min(cftl.z, min(cftr.z, min(cfbl.z, cfbr.z)));
+
+		maxX = max(nMaxX, fMaxX);
+		maxY = max(nMaxY, fMaxY);
+		maxZ = max(nMaxZ, fMaxZ);
+
+		minX = min(nMinX, fMinX);
+		minY = min(nMinY, fMinY);
+		minZ = min(nMinZ, fMinZ);
+
 		for( size_t i = 0; i < triangles.size(); ++i )
 		{
 			vec3 v0 = triangles[i].v0;
 			vec3 v1 = triangles[i].v1;
 			vec3 v2 = triangles[i].v2;
 
-			if (InClippingVolume(triangles[i].v0) && InClippingVolume(triangles[i].v1) && InClippingVolume(triangles[i].v2))
+			/*glm::vec4 hv0(v0.x, v0.y, v0.z, 1.0f);
+			glm::vec4 pv0 = (hv0*pyramid)*cuboid;
+			glm::vec4 hv1(v1.x, v1.y, v1.z, 1.0f);
+			glm::vec4 pv1 = (hv1*pyramid)*cuboid;
+			glm::vec4 hv2(v2.x, v2.y, v2.z, 1.0f);
+			glm::vec4 pv2 = (hv2*pyramid)*cuboid;*/
+
+			glm::vec4 hv0(v0.x, v0.y, v0.z, 1.0f);
+			glm::vec4 pv0 = hv0*pyramid;
+			glm::vec4 hv1(v1.x, v1.y, v1.z, 1.0f);
+			glm::vec4 pv1 = hv1*pyramid;
+			glm::vec4 hv2(v2.x, v2.y, v2.z, 1.0f);
+			glm::vec4 pv2 = hv2*pyramid;
+
+			//divide by z
+			pv0 = pv0/pv0[3];
+			pv1 = pv1/pv1[3];
+			pv2 = pv2/pv2[3];
+
+		
+
+			if (InCuboid(pv0) && InCuboid(pv1) && InCuboid(pv2))
 			{
 				triangles[i].isCulled = false;
 			}
@@ -368,20 +458,26 @@ void Update()
 				triangles[i].isCulled = true;
 				//printf("ay\n");exit(0);
 			}
-		}*/
 
-		// perspective transform
-		glm::mat4 perspective = glm::mat4(0.0f);
+			if (i == 2)
+			{
+				printf("minX %f maxX %f minY %f maxY %f minZ %f maxZ %f\n", minX, maxX, minY, maxY, minZ, maxZ);
+				printf("pv0 %f %f %f\n", pv0.x, pv0.y, pv0.z);
+				printf("pv1 %f %f %f\n", pv1.x, pv1.y, pv1.z);
+				printf("pv2 %f %f %f\n", pv2.x, pv2.y, pv2.z);
 
-		perspective[0][0] = 2.0f/float(SCREEN_WIDTH);
-		perspective[1][1] = 2.0f/float(SCREEN_HEIGHT);
-		perspective[2][2] = 1.0f/float(focalLength);
-		perspective[3][3] = 1.0f;
-		
-		perspective[0][0] = 2.0f/float(SCREEN_WIDTH);
-		perspective[1][1] = 2.0f/float(SCREEN_HEIGHT);
-		perspective[2][2] = 1.0f/float(focalLength);
-		perspective[3][3] = 1.0f;
+				printf("pv0 %f %f %f\n", pv0.x, pv0.y, pv0.z);
+				printf("pv1 %f %f %f\n", pv1.x, pv1.y, pv1.z);
+				printf("pv2 %f %f %f\n", pv2.x, pv2.y, pv2.z);
+				glm::vec4 norm = glm::vec4(cameraPos.x, cameraPos.y, cameraPos.z, 1.0f)*pyramid;
+				norm = norm/norm[3];
+				printf("cam x %f y %f z %f\n", cameraPos.x, cameraPos.y, cameraPos.z);
+				printf("norm cam x %f y %f z %f\n", cameraPos.x, cameraPos.y, cameraPos.z);
+				printf("ntl x %f y %f z %f\n", nearTopLeft.x, nearTopLeft.y, nearTopLeft.z);
+				printf("isCulled: %d\n", triangles[i].isCulled);
+				//exit(0);
+			}
+		}
 	}
 }
 
@@ -393,6 +489,16 @@ bool InFrustum(vec3 v)
 		v.y < frustum.nearTopLeft.y && v.y < frustum.farTopLeft.y &&
 		v.z < frustum.farTopLeft.z && v.z > frustum.nearTopLeft.z
 		)
+	{
+		return true;
+	}
+
+	return false;
+}
+
+bool InCuboid(glm::vec4 v)
+{
+	if (v.x > minX && v.x < maxX && v.y > minY && v.y < maxY && v.z > minZ && v.z < maxZ)
 	{
 		return true;
 	}
@@ -420,8 +526,10 @@ void Draw()
 	#pragma omp parallel for schedule(dynamic)
 	for( size_t i = 0; i < triangles.size(); ++i )
 	{
+		//if (i != 2) triangles[i].isCulled = true;
 		if (!triangles[i].isCulled)
 		{
+			printf("%d , %d - ",triangles.size(), i);
 			// Get the 3 vertices of the triangle
 			vector<Vertex> vertices(3);
 			vertices[0].position = triangles[i].v0;
