@@ -4,6 +4,7 @@
 #include "SDLauxiliary.h"
 #include "TestModel.h"
 #include <omp.h>
+#include "LoadSTL.cpp"
 
 using namespace std;
 using glm::vec3;
@@ -15,6 +16,7 @@ using glm::ivec2;
 /* GLOBAL VARIABLES                                                            */
 
 //#define FRUSTUM // Uncomment this for naive frustum culling
+#define CUSTOM_MODEL
 
 const int SCREEN_WIDTH = 500;
 const int SCREEN_HEIGHT = 500;
@@ -73,8 +75,14 @@ int main( int argc, char* argv[] )
 {
 	screen = InitializeSDL( SCREEN_WIDTH, SCREEN_HEIGHT );
 
-	// Generate the Cornell Box
-	LoadTestModel( triangles );
+	#ifdef CUSTOM_MODEL
+		LoadSTL customModel;
+		customModel.LoadSTLFile(triangles);
+		//cameraPos = vec3(0,-10,-50);
+	#else
+		// Generate the Cornell Box
+		LoadTestModel( triangles );
+	#endif
 
 	cameraRot[1][1] = 1.0f;
 
