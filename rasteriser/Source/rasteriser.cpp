@@ -34,9 +34,10 @@ vec3 currentReflectance;
 
 float depthBuffer[SCREEN_HEIGHT][SCREEN_WIDTH];
 
-vec3 lightPos(0,-0.5,0.5f);
-vec3 lightPower = 14.0f*vec3( 1, 1, 1 );
-vec3 indirectLightPowerPerArea = 0.5f*vec3( 1, 1, 1 );
+int NUM_LIGHTS = 0;
+Light lights[32];
+
+vec3 indirectLightPowerPerArea = 0.2f*vec3( 1, 1, 1 );
 bool isUpdated = true;
 
 bool MULTITHREADING_ENABLED = false;
@@ -50,6 +51,8 @@ bool OMP_key_pressed = false;
 bool thread_add_key_pressed = false;
 bool thread_subtract_key_pressed = false;
 bool backface_key_pressed = false;
+bool delete_light_key_pressed = false;
+bool add_light_key_pressed = false;
 
 /* ----------------------------------------------------------------------------*/
 /* FUNCTIONS                                                                   */
@@ -68,10 +71,14 @@ void DrawRows( const vector<Pixel>& leftPixels, const vector<Pixel>& rightPixels
 void DrawPolygon( const vector<Vertex>& vertices , vec3 color, vec3 normal);
 void PixelShader( const Pixel& p , vec3 color, vec3 normal);
 bool InFrustum(vec3 v);
+void AddLight(vec3 position, vec3 color, float intensity);
+void DeleteLight();
+float RandomNumber();
 
 int main( int argc, char* argv[] )
 {
 	screen = InitializeSDL( SCREEN_WIDTH, SCREEN_HEIGHT );
+	AddLight(vec3(0, -0.5f, -0.5f), vec3(1,1,1), 14 );
 
 	#ifdef CUSTOM_MODEL
 		LoadSTL customModel;
@@ -119,6 +126,27 @@ int main( int argc, char* argv[] )
 
 	SDL_SaveBMP( screen, "screenshot.bmp" );
 	return 0;
+}
+
+// Returns a random number between -0.5 and 0.5
+float RandomNumber()
+{
+	return ((double) rand() / (RAND_MAX)) - 0.5f;
+}
+
+void AddLight(vec3 position, vec3 color, float intensity)
+{
+	lights[NUM_LIGHTS].position = position;
+	lights[NUM_LIGHTS].color = color;
+	lights[NUM_LIGHTS].intensity = intensity;
+
+	NUM_LIGHTS++;
+}
+
+void DeleteLight()
+{
+	if(NUM_LIGHTS > 0)
+		NUM_LIGHTS--;
 }
 
 void Update()
@@ -204,6 +232,30 @@ void Update()
 	else if (!keystate[SDLK_7])
 		backface_key_pressed = false;
 
+		if(!add_light_key_pressed && keystate[SDLK_2])
+	{
+		AddLight(vec3(RandomNumber() * 2.0f, RandomNumber() * 2.0f, RandomNumber() * 2.0f),vec3(abs(RandomNumber()) * 2.0f + 0.2f,abs(RandomNumber()) * 2.0f + 0.2f,abs(RandomNumber()) * 2.0f + 0.2f),abs(RandomNumber()) * 20.0f);
+		cout << "Spawned a light" << endl;
+		add_light_key_pressed = true;
+		isUpdated = true;
+	}
+	else if (!keystate[SDLK_2])
+	{
+		add_light_key_pressed = false;
+	}
+
+	if(!delete_light_key_pressed && keystate[SDLK_3])
+	{
+		DeleteLight();
+		cout << "Deleted a light" << endl;
+		delete_light_key_pressed = true;
+		isUpdated = true;
+	}
+	else if (!keystate[SDLK_3])
+	{
+		delete_light_key_pressed = false;
+	}
+
 	if( keystate[SDLK_UP] )
 	{
 		// Move camera forward
@@ -232,23 +284,23 @@ void Update()
 	// Light movement controls
 	if (keystate[SDLK_w])
 	{
-		lightPos.z += 0.05f*(dt / 20.0f);
+		lights[0].position.z += 0.05f*(dt / 20.0f);
 		isUpdated = true;
 	}
 	else if (keystate[SDLK_s])
 	{
-		lightPos.z -= 0.05f*(dt / 20.0f);
+		lights[0].position.z -= 0.05f*(dt / 20.0f);
 		isUpdated = true;
 	}
 
 	if (keystate[SDLK_a])
 	{
-		lightPos.x -= 0.05f*(dt / 20.0f);
+		lights[0].position.x -= 0.05f*(dt / 20.0f);
 		isUpdated = true;;
 	}
 	else if (keystate[SDLK_d])
 	{
-		lightPos.x += 0.05f*(dt / 20.0f);
+		lights[0].position.x += 0.05f*(dt / 20.0f);
 		isUpdated = true;
 	}
 
@@ -379,17 +431,25 @@ void PixelShader( const Pixel& p , vec3 color, vec3 normal)
 	// Multiply pixel 3d position by the z value to get the origin position from the inverse
 	vec3 pPos3d(p.pos3d);
 	pPos3d *= p.pos3d.z;
+	vec3 result;
 
-	// Calculate lighting
-	float r = glm::distance(pPos3d, lightPos);
-	float A = 4*M_PI*(r*r);
-	
-	vec3 rDir = glm::normalize(lightPos - pPos3d);
-	vec3 nDir = normal;
+	for(int i = 0; i < NUM_LIGHTS; i++)
+	{
+		// Calculate lighting
+		float r = glm::distance(pPos3d, lights[i].position);
+		float A = 4*M_PI*(r*r);
+		vec3 lightColor = lights[i].color * lights[i].intensity;
+		
+		vec3 rDir = glm::normalize(lights[i].position - pPos3d);
+		vec3 nDir = normal;
+		vec3 B = lightColor / A;
 
-	vec3 D = (lightPower * max(glm::dot(rDir,nDir), 0.0f)) / A;
+		vec3 D = (B * max(glm::dot(rDir,nDir), 0.0f));
+		result += D;
+	}
 
-	vec3 pixelColor = currentReflectance * (D + indirectLightPowerPerArea) * color;
+
+	vec3 pixelColor = currentReflectance * (result + indirectLightPowerPerArea) * color;
 
 	PutPixelSDL( screen, x, y, pixelColor );
 }
