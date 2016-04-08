@@ -14,7 +14,7 @@ class LoadSTL
 public:
 	void LoadSTLFile(std::vector<Triangle>& triangles )
 	{
-		float scale = 0.1f;
+		float scale = 0.05f;
 		ifstream inputStream;
 		string line;
 		inputStream.open("Source/enemy1.stl");

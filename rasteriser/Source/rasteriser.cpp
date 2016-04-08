@@ -78,7 +78,7 @@ int main( int argc, char* argv[] )
 	#ifdef CUSTOM_MODEL
 		LoadSTL customModel;
 		customModel.LoadSTLFile(triangles);
-		//cameraPos = vec3(0,-10,-50);
+		cameraPos = vec3(0,-0.5,-5.0f);
 	#else
 		// Generate the Cornell Box
 		LoadTestModel( triangles );
