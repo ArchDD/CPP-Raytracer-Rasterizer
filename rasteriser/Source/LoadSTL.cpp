@@ -3,9 +3,9 @@
 #include<stdio.h>
 #include<vector>
 #include<string>
+#include <sstream>
 #include <glm/glm.hpp>
 #include <algorithm>
-#include <boost/lexical_cast.hpp>
 
 using namespace std;
 
@@ -36,10 +36,9 @@ public:
 					vector<string> vertexValues = split(vertexLine, ' ');
 
 					float x, y, z;
-					
-					x = boost::lexical_cast<float>(vertexValues[0]);
-					y = boost::lexical_cast<float>(vertexValues[1]);
-					z = boost::lexical_cast<float>(vertexValues[2]);
+					x = (float)atof(vertexValues[0].c_str());
+					y = (float)atof(vertexValues[1].c_str());
+					z = (float)atof(vertexValues[2].c_str());
 
 					if(i == 0)
 						v1 = glm::vec3(x,y,z);
