@@ -384,7 +384,8 @@ void Update()
 
 		//float near = 3.0f, far = 15.0f;
 		vec3 fVec = glm::normalize(vec3(0,0,1.0f)*cameraRot);
-		float near = cameraPos.z+fVec.z*3.0f, far = cameraPos.z+fVec.z*15.0f;
+		//float near = cameraPos.z+fVec.z*3.0f, far = cameraPos.z+fVec.z*15.0f;
+		float near = -1.0f, far = 1.0f;
 		float w = (float)SCREEN_WIDTH, h = (float)SCREEN_HEIGHT;
 
 		// Viewport vertices
@@ -394,10 +395,10 @@ void Update()
 		vec3 br(w/2.0f, h/2.0f, focalLength);
 
 		// Transform to camera co-ordinates
-		tl = (tl-cameraPos)*cameraRot;
+		/*tl = (tl-cameraPos)*cameraRot;
 		tr = (tr-cameraPos)*cameraRot;
 		bl = (bl-cameraPos)*cameraRot;
-		br = (br-cameraPos)*cameraRot;
+		br = (br-cameraPos)*cameraRot;*/
 
 		// Homogeneous co-ordinates
 		vec4 ntl(tl.x, tl.y, tl.z, 1.0f);
@@ -414,8 +415,8 @@ void Update()
 		float rfovy = acos(cy);
 		float fovy = (180.0f/M_PI)*rfovy;
 		float aspect = w/h;
-		transform[0][0] = (1/tan(rfovy/2))/aspect;
-		transform[1][1] = (1/tan(rfovy/2));
+		transform[0][0] = (1.0f/tan(rfovy/2.0f))/aspect;
+		transform[1][1] = (1.0f/tan(rfovy/2.0f));
 		transform[2][2] = far/(far-near);
 		transform[3][2] = near*far/(far-near);
 		transform[3][2] = 1.0f;
@@ -426,17 +427,10 @@ void Update()
 		vec4 cnbl = nbl*transform;
 		vec4 cnbr = nbr*transform;
 
-		/*cntl = cntl/cntl[3];
+		cntl = cntl/cntl[3];
 		cntr = cntr/cntr[3];
 		cnbl = cnbl/cnbl[3];
-		cnbr = cnbr/cnbr[3];*/
-
-		/*minX = cntl.x;
-		maxX = cntr.x;
-		minY = cntl.y;
-		maxY = cnbl.y;
-		minZ = near;
-		maxZ = far;*/
+		cnbr = cnbr/cnbr[3];
 
 		minX = min(cntl.x, min(cntr.x, min(cnbl.x, cnbr.x)));
 		minY = min(cntl.y, min(cntr.y, min(cnbl.y, cnbr.y)));
@@ -464,9 +458,9 @@ void Update()
 				vec3 v1 = triangles[i].v1;
 				vec3 v2 = triangles[i].v2;
 
-				/*v0 = (v0-cameraPos)*cameraRot;
+				v0 = (v0-cameraPos)*cameraRot;
 				v1 = (v1-cameraPos)*cameraRot;
-				v2 = (v2-cameraPos)*cameraRot;*/
+				v2 = (v2-cameraPos)*cameraRot;
 
 				// Map to clipping space
 				vec4 tv0 = glm::vec4(v0.x, v0.y, v0.z, 1.0f);
@@ -476,9 +470,9 @@ void Update()
 				tv1 = tv1*transform;
 				tv2 = tv2*transform;
 
-				/*tv0 = tv0/tv0[3];
+				tv0 = tv0/tv0[3];
 				tv1 = tv1/tv1[3];
-				tv2 = tv2/tv2[3];*/
+				tv2 = tv2/tv2[3];
 
 				bool bv0 = InCuboid(tv0);
 				bool bv1 = InCuboid(tv1);
