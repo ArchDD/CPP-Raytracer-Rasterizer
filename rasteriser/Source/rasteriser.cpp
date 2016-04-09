@@ -100,7 +100,7 @@ bool InCuboid(vec4 v);
 int main( int argc, char* argv[] )
 {
 	screen = InitializeSDL( SCREEN_WIDTH, SCREEN_HEIGHT );
-	AddLight(vec3(-0.1f, -0.2f, 0.7f), vec3(0.95f,0.8f,0.75f), 4.0f );
+	AddLight(vec3(0, -0.5f, -0.7f), vec3(1,1,1), 14 );
 
 	#ifdef CUSTOM_MODEL
 		LoadSTL customModel;
@@ -591,20 +591,29 @@ void PixelShader( const Pixel& p , vec3 color, vec3 normal)
 
 	// Multiply pixel 3d position by the z value to get the original position from the inverse
 	vec3 pPos3d(p.pos3d);
-	pPos3d *= p.pos3d.z;
-	vec3 result;
+	//pPos3d *= p.pos3d.z;
+	pPos3d /=p.zinv;
+	// Invert the camera transformations of pos3d P'=(P-C)R
+	pPos3d = pPos3d*glm::inverse(cameraRot);
+	pPos3d+=cameraPos;
 
-	float distance = glm::distance(pPos3d, cameraPos);
+	vec3 result(0.0f, 0.0f, 0.0f);
+
+	//float distance = glm::distance(pPos3d, cameraPos);
 	//focalDistances[p.y*SCREEN_HEIGHT + p.x] = distance - FOCAL_LENGTH;
 
 	for(int i = 0; i < NUM_LIGHTS; i++)
 	{
+		// Apply pos3d transform to light
+		vec3 lightPos = lights[i].position;
+		/*lightPos = (lightPos-cameraPos)*cameraRot;
+		lightPos = lightPos / lightPos.z;*/
+
 		// Calculate lighting
-		float r = glm::distance(pPos3d, lights[i].position);
+		float r = glm::distance(pPos3d, lightPos);
 		float A = 4*M_PI*(r*r);
 		vec3 lightColor = lights[i].color * lights[i].intensity;
-		
-		vec3 rDir = glm::normalize(lights[i].position - pPos3d);
+		vec3 rDir = glm::normalize(lightPos - pPos3d);
 		vec3 nDir = normal;
 		vec3 B = lightColor / A;
 
