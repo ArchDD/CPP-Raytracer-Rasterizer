@@ -47,7 +47,7 @@ int NUM_THREADS; // Set by code
 int SAVED_THREADS; // Stores thread value when changed
 
 bool BACKFACE_CULLING_ENABLED = false;
-bool FRUSTUM_CULLING_ENABLED = false;
+bool FRUSTUM_CULLING_ENABLED = true;
 
 bool DOF_ENABLED = false;
 int DOF_KERNEL_SIZE = 8;
@@ -100,7 +100,7 @@ bool InCuboid(vec4 v);
 int main( int argc, char* argv[] )
 {
 	screen = InitializeSDL( SCREEN_WIDTH, SCREEN_HEIGHT );
-	AddLight(vec3(0, -0.5f, -0.5f), vec3(1,1,1), 14 );
+	AddLight(vec3(-0.1f, -0.2f, 0.7f), vec3(0.95f,0.8f,0.75f), 4.0f );
 
 	#ifdef CUSTOM_MODEL
 		LoadSTL customModel;
