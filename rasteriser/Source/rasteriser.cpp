@@ -383,7 +383,8 @@ void Update()
 		cameraRot[2][2] = c;
 
 		//float near = 3.0f, far = 15.0f;
-		float near = cameraPos.z+2.0f, far = cameraPos.z+15.0f;
+		vec3 fVec = glm::normalize(vec3(0,0,1.0f)*cameraRot);
+		float near = cameraPos.z+fVec.z*3.0f, far = cameraPos.z+fVec.z*15.0f;
 		float w = (float)SCREEN_WIDTH, h = (float)SCREEN_HEIGHT;
 
 		// Viewport vertices
@@ -425,13 +426,24 @@ void Update()
 		vec4 cnbl = nbl*transform;
 		vec4 cnbr = nbr*transform;
 
-		minX = cntl.x;
+		/*cntl = cntl/cntl[3];
+		cntr = cntr/cntr[3];
+		cnbl = cnbl/cnbl[3];
+		cnbr = cnbr/cnbr[3];*/
+
+		/*minX = cntl.x;
 		maxX = cntr.x;
 		minY = cntl.y;
 		maxY = cnbl.y;
 		minZ = near;
-		maxZ = far;
+		maxZ = far;*/
 
+		minX = min(cntl.x, min(cntr.x, min(cnbl.x, cnbr.x)));
+		minY = min(cntl.y, min(cntr.y, min(cnbl.y, cnbr.y)));
+		maxX = max(cntl.x, max(cntr.x, max(cnbl.x, cnbr.x)));
+		maxY = max(cntl.y, max(cntr.y, max(cnbl.y, cnbr.y)));
+		minZ = near;
+		maxZ = far;
 		for( size_t i = 0; i < triangles.size(); ++i )
 		{
 			// Backface culling
@@ -452,6 +464,10 @@ void Update()
 				vec3 v1 = triangles[i].v1;
 				vec3 v2 = triangles[i].v2;
 
+				/*v0 = (v0-cameraPos)*cameraRot;
+				v1 = (v1-cameraPos)*cameraRot;
+				v2 = (v2-cameraPos)*cameraRot;*/
+
 				// Map to clipping space
 				vec4 tv0 = glm::vec4(v0.x, v0.y, v0.z, 1.0f);
 				vec4 tv1 = glm::vec4(v1.x, v1.y, v1.z, 1.0f);
@@ -459,6 +475,10 @@ void Update()
 				tv0 = tv0*transform;
 				tv1 = tv1*transform;
 				tv2 = tv2*transform;
+
+				/*tv0 = tv0/tv0[3];
+				tv1 = tv1/tv1[3];
+				tv2 = tv2/tv2[3];*/
 
 				bool bv0 = InCuboid(tv0);
 				bool bv1 = InCuboid(tv1);
@@ -479,7 +499,7 @@ void Update()
 					printf("tv0 %f %f %f %f\n",tv0.x, tv0.y, tv0.z, tv0[3]);
 					printf("tv1 %f %f %f %f\n",tv1.x, tv1.y, tv1.z, tv1[3]);
 					printf("tv2 %f %f %f %f\n",tv2.x, tv2.y, tv2.z, tv2[3]);
-					if (triangles[i].isCulled) exit(0);
+					//if (triangles[i].isCulled) exit(0);
 				}
 
 			}
