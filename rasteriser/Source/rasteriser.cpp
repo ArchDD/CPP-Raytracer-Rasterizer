@@ -382,7 +382,8 @@ void Update()
 		cameraRot[2][0] = -s;
 		cameraRot[2][2] = c;
 
-		float near = 3.0f, far = 15.0f;
+		//float near = 3.0f, far = 15.0f;
+		float near = cameraPos.z+2.0f, far = cameraPos.z+15.0f;
 		float w = (float)SCREEN_WIDTH, h = (float)SCREEN_HEIGHT;
 
 		// Viewport vertices
@@ -451,10 +452,6 @@ void Update()
 				vec3 v1 = triangles[i].v1;
 				vec3 v2 = triangles[i].v2;
 
-				v0 = (v0-cameraPos)*cameraRot;
-				v1 = (v1-cameraPos)*cameraRot;
-				v2 = (v2-cameraPos)*cameraRot;
-
 				// Map to clipping space
 				vec4 tv0 = glm::vec4(v0.x, v0.y, v0.z, 1.0f);
 				vec4 tv1 = glm::vec4(v1.x, v1.y, v1.z, 1.0f);
@@ -472,6 +469,19 @@ void Update()
 					triangles[i].isCulled = false;
 				else
 					triangles[i].isCulled = true;
+
+				if (i == 2)
+				{
+					printf("minX %f maxX %f minY %f maxY %f minZ %f maxZ %f\n",minX,maxX,minY,maxY,minZ,maxZ);
+					printf("v0 %f %f %f\n",v0.x, v0.y, v0.z);
+					printf("v1 %f %f %f\n",v1.x, v1.y, v1.z);
+					printf("v2 %f %f %f\n",v2.x, v2.y, v2.z);
+					printf("tv0 %f %f %f %f\n",tv0.x, tv0.y, tv0.z, tv0[3]);
+					printf("tv1 %f %f %f %f\n",tv1.x, tv1.y, tv1.z, tv1[3]);
+					printf("tv2 %f %f %f %f\n",tv2.x, tv2.y, tv2.z, tv2[3]);
+					if (triangles[i].isCulled) exit(0);
+				}
+
 			}
 		}
 	}
