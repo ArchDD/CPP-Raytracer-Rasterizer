@@ -339,13 +339,13 @@ void Update()
 	if( keystate[SDLK_LEFT] )
 	{
 		// Rotate camera to the left
-		yaw += 0.0025f*(dt / 20.0f);
+		yaw += 0.01f*(dt / 20.0f);
 		isUpdated = 1;
 	}
 	else if( keystate[SDLK_RIGHT] )
 	{
 		// Rotate camera to the right
-		yaw -= 0.0025f*(dt / 20.0f);
+		yaw -= 0.01f*(dt / 20.0f);
 		isUpdated = true;
 	}
 

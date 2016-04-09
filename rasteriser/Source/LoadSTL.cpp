@@ -9,26 +9,34 @@
 
 using namespace std;
 
+// Loads a 3D model stored in STL format as a vector of triangles
+
 class LoadSTL
 {
 public:
 	void LoadSTLFile(std::vector<Triangle>& triangles )
 	{
 		float scale = 0.05f;
-		ifstream inputStream;
 		string line;
-		inputStream.open("Source/enemy1.stl");
-		glm::vec3 green(  0.5f, 0.5f, 0.5f );
+		// STL doesn't support baked colour information so we need to set the colour manually
+		glm::vec3 colour(  0.5f, 0.5f, 0.5f );
 
+		// Start file stream
+		ifstream inputStream;
+		inputStream.open("Source/enemy1.stl");
+
+		// Clear and reserve triangles
 		triangles.clear();
-		triangles.reserve( 1000 );
+		triangles.reserve( 10000 );
 
 		while (getline(inputStream, line))
 		{
+			// Search for "outer" substring then extract the 3 vertices
 			if(line.find("outer") != string::npos)
 			{
 				glm::vec3 v1,v2,v3;
 
+				// Get X, Y, Z values of vertex
 				for(int i = 0; i < 3; i++)
 				{
 					string vertexLine; 
@@ -47,11 +55,12 @@ public:
 					else 
 						v3 = glm::vec3(x,y,z);
 				}
-				triangles.push_back( Triangle( v1, v2, v3, green ) );
+				triangles.push_back( Triangle( v1, v2, v3, colour ) );
 			}
 			
 		}
 
+		// Set scale, compute normal
 		for( size_t i=0; i<triangles.size(); ++i )
 		{
 
@@ -71,11 +80,11 @@ public:
 		}
 	}
 
-	// You could also take an existing vector as a parameter.
+	// Takes a string and splits it by a delimiter
 	vector<string> split(string str, char delimiter) 
 	{
 	  vector<string> internal;
-	  stringstream ss(str); // Turn the string into a stream.
+	  stringstream ss(str);
 	  string tok;
 	  
 	  while(getline(ss, tok, delimiter)) 
