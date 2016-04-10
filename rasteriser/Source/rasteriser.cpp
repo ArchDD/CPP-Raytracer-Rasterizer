@@ -74,12 +74,12 @@ vec3 pixelColours[SCREEN_WIDTH * SCREEN_HEIGHT];
 vec3 blurredPixels[SCREEN_WIDTH * SCREEN_HEIGHT];
 
 // Clipping volume bounds
-float minX = -numeric_limits<float>::max();
-float minY = minX;
-float minZ = minX;
-float maxX = +numeric_limits<float>::max();
-float maxY = maxX;
-float maxZ = maxX;
+float minX = -1.0f;
+float minY = -1.0f;
+float minZ = 0.0f;
+float maxX = 1.0f;
+float maxY = 1.0f;
+float maxZ = 1.0f;
 
 void Update();
 void Draw();
@@ -382,36 +382,17 @@ void Update()
 		cameraRot[2][0] = -s;
 		cameraRot[2][2] = c;
 
-		//float near = 3.0f, far = 15.0f;
 		vec3 fVec = glm::normalize(vec3(0,0,1.0f)*cameraRot);
-		//float near = cameraPos.z+fVec.z*3.0f, far = cameraPos.z+fVec.z*15.0f;
-		float near = -1.0f, far = 1.0f;
+		float near = cameraPos.z+fVec.z*2.5f, far = cameraPos.z+fVec.z*15.0f;
+		//float near = 3.0f, far = 10.0f;
 		float w = (float)SCREEN_WIDTH, h = (float)SCREEN_HEIGHT;
-
-		// Viewport vertices
-		vec3 tl(-w/2.0f, -h/2.0f, focalLength);
-		vec3 tr(w/2.0f, -h/2.0f, focalLength);
-		vec3 bl(-w/2.0f, h/2.0f, focalLength);
-		vec3 br(w/2.0f, h/2.0f, focalLength);
-
-		// Transform to camera co-ordinates
-		/*tl = (tl-cameraPos)*cameraRot;
-		tr = (tr-cameraPos)*cameraRot;
-		bl = (bl-cameraPos)*cameraRot;
-		br = (br-cameraPos)*cameraRot;*/
-
-		// Homogeneous co-ordinates
-		vec4 ntl(tl.x, tl.y, tl.z, 1.0f);
-		vec4 ntr(tr.x, tr.y, tr.z, 1.0f);
-		vec4 nbl(bl.x, bl.y, bl.z, 1.0f);
-		vec4 nbr(br.x, br.y, br.z, 1.0f);
 
 		// Perspective matrix transformation
 		mat4 transform = glm::mat4(0.0f);
 		// fovy version
-		vec3 a(0.0f, tl.y, focalLength);
-		vec3 b(0.0f, bl.y, focalLength);
-		float cy = dot(a,b)/(glm::length(a)*glm::length(b));
+		vec3 t(0.0f, -h/2.0f, focalLength);
+		vec3 b(0.0f, h/2.0f, focalLength);
+		float cy = dot(t,b)/(glm::length(t)*glm::length(b));
 		float rfovy = acos(cy);
 		float fovy = (180.0f/M_PI)*rfovy;
 		float aspect = w/h;
@@ -421,23 +402,6 @@ void Update()
 		transform[3][2] = near*far/(far-near);
 		transform[3][2] = 1.0f;
 
-		// Form cuboid clipping volume
-		vec4 cntl = ntl*transform;
-		vec4 cntr = ntr*transform;
-		vec4 cnbl = nbl*transform;
-		vec4 cnbr = nbr*transform;
-
-		cntl = cntl/cntl[3];
-		cntr = cntr/cntr[3];
-		cnbl = cnbl/cnbl[3];
-		cnbr = cnbr/cnbr[3];
-
-		minX = min(cntl.x, min(cntr.x, min(cnbl.x, cnbr.x)));
-		minY = min(cntl.y, min(cntr.y, min(cnbl.y, cnbr.y)));
-		maxX = max(cntl.x, max(cntr.x, max(cnbl.x, cnbr.x)));
-		maxY = max(cntl.y, max(cntr.y, max(cnbl.y, cnbr.y)));
-		minZ = near;
-		maxZ = far;
 		for( size_t i = 0; i < triangles.size(); ++i )
 		{
 			// Backface culling
@@ -483,19 +447,6 @@ void Update()
 					triangles[i].isCulled = false;
 				else
 					triangles[i].isCulled = true;
-
-				if (i == 2)
-				{
-					printf("minX %f maxX %f minY %f maxY %f minZ %f maxZ %f\n",minX,maxX,minY,maxY,minZ,maxZ);
-					printf("v0 %f %f %f\n",v0.x, v0.y, v0.z);
-					printf("v1 %f %f %f\n",v1.x, v1.y, v1.z);
-					printf("v2 %f %f %f\n",v2.x, v2.y, v2.z);
-					printf("tv0 %f %f %f %f\n",tv0.x, tv0.y, tv0.z, tv0[3]);
-					printf("tv1 %f %f %f %f\n",tv1.x, tv1.y, tv1.z, tv1[3]);
-					printf("tv2 %f %f %f %f\n",tv2.x, tv2.y, tv2.z, tv2[3]);
-					//if (triangles[i].isCulled) exit(0);
-				}
-
 			}
 		}
 	}
