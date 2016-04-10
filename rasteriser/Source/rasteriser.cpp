@@ -84,7 +84,7 @@ void Update();
 void Draw();
 void VertexShader( const vec3& v, Pixel& p );
 void Interpolate( Pixel a, Pixel b, vector<Pixel>& result );
-void Breshenham(Pixel a, Pixel b, vector<Pixel>& result);
+void Bresenham(Pixel a, Pixel b, vector<Pixel>& result);
 void DrawLineSDL( SDL_Surface* surface, Pixel a, Pixel b, vec3 color );
 void ComputePolygonRows( const vector<Pixel>& vertexPixels, vector<Pixel>& leftPixels, vector<Pixel>& rightPixels , vec3 color, vec3 normal);
 void DrawRows( const vector<Pixel>& leftPixels, const vector<Pixel>& rightPixels , vec3 color, vec3 normal);
@@ -110,7 +110,7 @@ int main( int argc, char* argv[] )
 		LoadTestModel( triangles );
 	#endif
 
-	cameraRot[1][1] = 1.0f;
+	cameraRot[1][1] = 1.01f;
 
 	// Request as many threads as the system can provide
 	NUM_THREADS = omp_get_max_threads();
@@ -615,11 +615,11 @@ void DrawLineSDL( SDL_Surface* surface, Pixel a, Pixel b, vec3 color, vec3 norma
 
 	Interpolate( a, b, line );*/
 
-	// Breshenam
+	// Bresenham
 	int pixels = b.x-a.x;
 	vector<Pixel> line (pixels);
 
-	Breshenham(a,b,line);
+	Bresenham(a,b,line);
 
 	// Spawn threads
 	#pragma omp parallel for schedule(auto)
@@ -659,7 +659,7 @@ void Interpolate( Pixel a, Pixel b, vector<Pixel>& result )
 	}
 }
 
-void Breshenham(Pixel a, Pixel b, vector<Pixel>& result)
+void Bresenham(Pixel a, Pixel b, vector<Pixel>& result)
 {
 	int x = a.x;
 	int y = a.y;
