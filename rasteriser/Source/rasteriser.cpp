@@ -45,12 +45,12 @@ bool MULTITHREADING_ENABLED = false;
 int NUM_THREADS; // Set by code
 int SAVED_THREADS; // Stores thread value when changed
 
-bool BACKFACE_CULLING_ENABLED = false;
+bool BACKFACE_CULLING_ENABLED = true;
 bool FRUSTUM_CULLING_ENABLED = true;
 
 bool DOF_ENABLED = false;
 int DOF_KERNEL_SIZE = 8;
-float FOCAL_LENGTH = 1.3f;
+float FOCAL_LENGTH = 1.9f;
 
 /* KEY STATES                                                                  */
 bool OMP_key_pressed = false;
@@ -186,6 +186,7 @@ void Update()
 		{
 			vec3 color( 0.0f, 0.0f, 0.0f );
 			depthBuffer[y][x] = 0.0f;
+			pixelColours[y*SCREEN_HEIGHT + x] = vec3(0);
 			PutPixelSDL( screen, x, y, color );
 		}
 	}
@@ -481,20 +482,11 @@ void Draw()
 		}
 	}
 
-		if( SDL_MUSTLOCK(screen) )
-		SDL_UnlockSurface(screen);
-		
-
-	SDL_UpdateRect( screen, 0, 0, 0, 0 );
-
-	//CalculateDOF();
+	CalculateDOF();
 }
 
 void CalculateDOF()
 {
-	if( SDL_MUSTLOCK(screen) )
-		SDL_LockSurface(screen);
-
 	// Total number of pixels in the kernel
 	float totalPixels = DOF_KERNEL_SIZE * DOF_KERNEL_SIZE;
 
@@ -573,8 +565,8 @@ void PixelShader( const Pixel& p , vec3 color, vec3 normal)
 
 	vec3 result(0.0f, 0.0f, 0.0f);
 
-	//float distance = glm::distance(pPos3d, cameraPos);
-	//focalDistances[p.y*SCREEN_HEIGHT + p.x] = distance - FOCAL_LENGTH;
+	float distance = glm::distance(pPos3d, cameraPos);
+	focalDistances[p.y*SCREEN_HEIGHT + p.x] = distance - FOCAL_LENGTH;
 
 	for(int i = 0; i < NUM_LIGHTS; i++)
 	{
@@ -597,9 +589,9 @@ void PixelShader( const Pixel& p , vec3 color, vec3 normal)
 
 
 	vec3 pixelColor = currentReflectance * (result + indirectLightPowerPerArea) * color;
-	//pixelColours[y*SCREEN_HEIGHT + x] = pixelColor;
+	pixelColours[y*SCREEN_HEIGHT + x] = pixelColor;
 
-	PutPixelSDL( screen, x, y, pixelColor );
+	//PutPixelSDL( screen, x, y, pixelColor );
 }
 
 // Draws a line between two points
