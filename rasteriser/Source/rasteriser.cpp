@@ -17,7 +17,7 @@ using glm::mat4;
 /* ----------------------------------------------------------------------------*/
 /* GLOBAL VARIABLES                                                            */
 
-#define CUSTOM_MODEL
+//#define CUSTOM_MODEL
 
 bool MULTITHREADING_ENABLED = false;
 int NUM_THREADS; // Set by code
@@ -604,8 +604,6 @@ void DrawLineSDL( SDL_Surface* surface, Pixel a, Pixel b, vec3 color, vec3 norma
 
 	Bresenham(a,b,line);
 
-	// Spawn threads
-	#pragma omp parallel for schedule(auto)
 	for(int i = 0; i < pixels; ++i)
 	{
 		// Ensure pixel is on the screen and is closer to the camera than the current value in the depth buffer
@@ -666,10 +664,14 @@ void Bresenham(Pixel a, Pixel b, vector<Pixel>& result)
 			y+=1;
 			d+=dydx2;
 		}
-		result[i].x = x;
-		result[i].y = y;
-		result[i].zinv = a.zinv+zinv*float(i);
-		result[i].pos3d = a.pos3d+pos3d*float(i);
+		if(x >= 0 && x < SCREEN_WIDTH)
+		{
+			result[i].x = x;
+			result[i].y = y;
+			result[i].zinv = a.zinv+zinv*float(i);
+			result[i].pos3d = a.pos3d+pos3d*float(i);
+		}
+
 	}
 }
 
@@ -741,7 +743,16 @@ void DrawRows( const vector<Pixel>& leftPixels, const vector<Pixel>& rightPixels
 {
 	for(int i = 0; i < leftPixels.size(); i++)
 	{
-		DrawLineSDL(screen, leftPixels[i],rightPixels[i],color, normal);
+		// If the line is out of frame, don't draw it
+		if((leftPixels[i].y >= SCREEN_HEIGHT && rightPixels[i].y >= SCREEN_HEIGHT) || (leftPixels[i].y < 0 && rightPixels[i].y < 0))
+		{
+			continue;
+		}
+		else
+		{
+			DrawLineSDL(screen, leftPixels[i],rightPixels[i],color, normal);
+		}
+
 	}
 }
 
