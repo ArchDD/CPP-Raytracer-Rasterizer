@@ -17,7 +17,7 @@ using glm::mat4;
 /* ----------------------------------------------------------------------------*/
 /* GLOBAL VARIABLES                                                            */
 
-//#define CUSTOM_MODEL
+#define CUSTOM_MODEL
 
 bool MULTITHREADING_ENABLED = false;
 int NUM_THREADS; // Set by code
@@ -312,7 +312,7 @@ void Update()
 		DOF_key_pressed = false;
 	}
 
-	if (keystate[SDLK_RIGHTBRACKET] && FOCAL_LENGTH < 10f)
+	if (keystate[SDLK_RIGHTBRACKET] && FOCAL_LENGTH < 10)
 	{
 		FOCAL_LENGTH += 0.1f;
 		cout << "Focal length is " << FOCAL_LENGTH << endl;
