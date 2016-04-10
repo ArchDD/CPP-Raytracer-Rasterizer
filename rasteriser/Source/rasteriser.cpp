@@ -17,7 +17,6 @@ using glm::mat4;
 /* ----------------------------------------------------------------------------*/
 /* GLOBAL VARIABLES                                                            */
 
-//#define FRUSTUM // Uncomment this for naive frustum culling
 //#define CUSTOM_MODEL
 
 const int SCREEN_WIDTH = 500;
