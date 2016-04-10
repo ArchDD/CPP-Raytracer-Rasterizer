@@ -19,28 +19,6 @@ using glm::mat4;
 
 //#define CUSTOM_MODEL
 
-const int SCREEN_WIDTH = 500;
-const int SCREEN_HEIGHT = 500;
-SDL_Surface* screen;
-int t;
-float focalLength = 500.0f;
-
-vec3 cameraPos( 0, 0, -3.0f );
-mat3 cameraRot = mat3(0.0f);
-float yaw = 0; // Yaw angle controlling camera rotation around y-axis
-
-vec3 currentColor;
-vec3 currentNormal;
-vec3 currentReflectance;
-
-float depthBuffer[SCREEN_HEIGHT][SCREEN_WIDTH];
-
-int NUM_LIGHTS = 0;
-Light lights[32];
-
-vec3 indirectLightPowerPerArea = 0.2f*vec3( 1, 1, 1 );
-bool isUpdated = true;
-
 bool MULTITHREADING_ENABLED = false;
 int NUM_THREADS; // Set by code
 int SAVED_THREADS; // Stores thread value when changed
@@ -52,6 +30,27 @@ bool DOF_ENABLED = false;
 int DOF_KERNEL_SIZE = 8;
 float FOCAL_LENGTH = 1.9f;
 
+SDL_Surface* screen;
+int t;
+const int SCREEN_WIDTH = 500;
+const int SCREEN_HEIGHT = 500;
+
+/* CAMERA SETTINGS                                                                  */
+vec3 cameraPos( 0, 0, -3.0f );
+mat3 cameraRot = mat3(0.0f);
+float focalLength = 500.0f;
+float yaw = 0; // Yaw angle controlling camera rotation around y-axis
+
+vec3 currentColor;
+vec3 currentNormal;
+vec3 currentReflectance;
+vec3 indirectLightPowerPerArea = 0.2f*vec3( 1, 1, 1 );
+
+int NUM_LIGHTS = 0;
+Light lights[32];
+
+float depthBuffer[SCREEN_HEIGHT][SCREEN_WIDTH];
+
 /* KEY STATES                                                                  */
 bool OMP_key_pressed = false;
 bool thread_add_key_pressed = false;
@@ -62,8 +61,6 @@ bool delete_light_key_pressed = false;
 bool add_light_key_pressed = false;
 bool DOF_key_pressed = false;
 
-/* ----------------------------------------------------------------------------*/
-/* FUNCTIONS                                                                   */
 vector<Triangle> triangles;
 vector<Triangle> activeTriangles;
 
@@ -79,6 +76,11 @@ float minZ = 0.0f;
 float maxX = 1.0f;
 float maxY = 1.0f;
 float maxZ = 1.0f;
+
+bool isUpdated = true;
+
+/* ----------------------------------------------------------------------------*/
+/* FUNCTIONS                                                                   */
 
 void Update();
 void Draw();
@@ -116,20 +118,17 @@ int main( int argc, char* argv[] )
 	NUM_THREADS = omp_get_max_threads();
     omp_set_num_threads(NUM_THREADS);
 
-
     // Set NUM_THREADS to how many the system can actually provide
     #pragma omp parallel
     {
     	int ID = omp_get_thread_num();
     	if(ID == 0)
     		NUM_THREADS = omp_get_num_threads();
-    	    SAVED_THREADS = NUM_THREADS;
+    	SAVED_THREADS = NUM_THREADS;
     }
 
     if(MULTITHREADING_ENABLED)
-    {
     	cout << "Multithreading enabled with " << NUM_THREADS << " threads" << endl;
-    }
     else
     	omp_set_num_threads(1);
 
@@ -155,6 +154,7 @@ float RandomNumber()
 	return ((double) rand() / (RAND_MAX)) - 0.5f;
 }
 
+// Spawns a new light with given parameters
 void AddLight(vec3 position, vec3 color, float intensity)
 {
 	lights[NUM_LIGHTS].position = position;
@@ -164,6 +164,7 @@ void AddLight(vec3 position, vec3 color, float intensity)
 	NUM_LIGHTS++;
 }
 
+// Delete current light
 void DeleteLight()
 {
 	if(NUM_LIGHTS > 0)
@@ -311,13 +312,13 @@ void Update()
 		DOF_key_pressed = false;
 	}
 
-	if (keystate[SDLK_RIGHTBRACKET])
+	if (keystate[SDLK_RIGHTBRACKET] && FOCAL_LENGTH < 10f)
 	{
 		FOCAL_LENGTH += 0.1f;
 		cout << "Focal length is " << FOCAL_LENGTH << endl;
 		isUpdated = true;
 	}
-	else if (keystate[SDLK_LEFTBRACKET])
+	else if (keystate[SDLK_LEFTBRACKET] && FOCAL_LENGTH > 0.1f)
 	{
 		FOCAL_LENGTH -= 0.1f;
 		cout << "Focal length is " << FOCAL_LENGTH << endl;
@@ -352,23 +353,23 @@ void Update()
 	// Light movement controls
 	if (keystate[SDLK_w])
 	{
-		lights[0].position.z += 0.05f*(dt / 20.0f);
+		lights[NUM_LIGHTS-1].position.z += 0.05f*(dt / 20.0f);
 		isUpdated = true;
 	}
 	else if (keystate[SDLK_s])
 	{
-		lights[0].position.z -= 0.05f*(dt / 20.0f);
+		lights[NUM_LIGHTS-1].position.z -= 0.05f*(dt / 20.0f);
 		isUpdated = true;
 	}
 
 	if (keystate[SDLK_a])
 	{
-		lights[0].position.x -= 0.05f*(dt / 20.0f);
+		lights[NUM_LIGHTS-1].position.x -= 0.05f*(dt / 20.0f);
 		isUpdated = true;;
 	}
 	else if (keystate[SDLK_d])
 	{
-		lights[0].position.x += 0.05f*(dt / 20.0f);
+		lights[NUM_LIGHTS-1].position.x += 0.05f*(dt / 20.0f);
 		isUpdated = true;
 	}
 
@@ -383,8 +384,7 @@ void Update()
 		cameraRot[2][2] = c;
 
 		vec3 fVec = glm::normalize(vec3(0,0,1.0f)*cameraRot);
-		float near = cameraPos.z+fVec.z*2.5f, far = cameraPos.z+fVec.z*15.0f;
-		//float near = 3.0f, far = 10.0f;
+		float near = cameraPos.z+fVec.z*1.0f, far = cameraPos.z+fVec.z*15.0f;
 		float w = (float)SCREEN_WIDTH, h = (float)SCREEN_HEIGHT;
 
 		// Perspective matrix transformation
@@ -590,8 +590,6 @@ void PixelShader( const Pixel& p , vec3 color, vec3 normal)
 
 	vec3 pixelColor = currentReflectance * (result + indirectLightPowerPerArea) * color;
 	pixelColours[y*SCREEN_HEIGHT + x] = pixelColor;
-
-	//PutPixelSDL( screen, x, y, pixelColor );
 }
 
 // Draws a line between two points
@@ -599,13 +597,6 @@ void DrawLineSDL( SDL_Surface* surface, Pixel a, Pixel b, vec3 color, vec3 norma
 {
 	Pixel delta = a - b;
 	PixelAbs(delta);
-	
-	// DDA
-	/*int pixels = max( delta.x, delta.y ) + 1;
-
-	vector<Pixel> line( pixels );
-
-	Interpolate( a, b, line );*/
 
 	// Bresenham
 	int pixels = b.x-a.x;
