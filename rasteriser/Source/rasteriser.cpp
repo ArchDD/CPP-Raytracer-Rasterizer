@@ -403,18 +403,17 @@ void Update()
 
 		for( size_t i = 0; i < triangles.size(); ++i )
 		{
+			triangles[i].isCulled = false;
 			// Backface culling
 			if (BACKFACE_CULLING_ENABLED)
 			{
-				if (dot(forward,triangles[i].normal) > 0.3f)
+				if (glm::dot((triangles[i].v0-cameraPos),triangles[i].normal)>0.0f)
 				{
 					triangles[i].isCulled = true;
 				}
-				else
-					triangles[i].isCulled = false;
 			}
 
-			if (FRUSTUM_CULLING_ENABLED)
+			if (FRUSTUM_CULLING_ENABLED && triangles[i].isCulled == false)
 			{
 				// Get every vertex of triangle to camera space
 				vec3 v0 = triangles[i].v0;
@@ -442,9 +441,7 @@ void Update()
 				bool bv2 = InCuboid(tv2);
 
 				// Determine culling
-				if (bv0 || bv1 || bv2)
-					triangles[i].isCulled = false;
-				else
+				if (!bv0 && !bv1 && !bv2)
 					triangles[i].isCulled = true;
 			}
 		}
