@@ -180,7 +180,6 @@ void Update()
 	cout << "Render time: " << dt << " ms." << endl;
 
 	// Clear the screen before drawing the next frame
-	#pragma omp parallel for schedule(auto)
 	for( int y=0; y<SCREEN_HEIGHT; ++y )
 	{
 		for( int x=0; x<SCREEN_WIDTH; ++x )
@@ -384,7 +383,7 @@ void Update()
 		cameraRot[2][2] = c;
 
 		vec3 fVec = glm::normalize(vec3(0,0,1.0f)*cameraRot);
-		float near = cameraPos.z+fVec.z*1.0f, far = cameraPos.z+fVec.z*15.0f;
+		float near = cameraPos.z+fVec.z*0.1f, far = cameraPos.z+fVec.z*15.0f;
 		float w = (float)SCREEN_WIDTH, h = (float)SCREEN_HEIGHT;
 
 		// Perspective matrix transformation
@@ -407,7 +406,7 @@ void Update()
 			// Backface culling
 			if (BACKFACE_CULLING_ENABLED)
 			{
-				if (dot(forward,triangles[i].normal) > 0.8f)
+				if (dot(forward,triangles[i].normal) > 0.3f)
 				{
 					triangles[i].isCulled = true;
 				}
@@ -468,7 +467,7 @@ void Draw()
 		SDL_LockSurface(screen);
 
 	currentReflectance = vec3(1.0f,1.0f,1.0f);
-
+	#pragma omp parallel for schedule(auto)
 	for( size_t i = 0; i < triangles.size(); ++i )
 	{
 		if (!triangles[i].isCulled)
